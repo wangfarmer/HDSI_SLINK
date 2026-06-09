@@ -95,8 +95,8 @@ def extract_faculty_record(
 
     image_url = _first_nonempty(
         _json_value(json_ld, "image"),
-        _meta_content(soup, "og:image"),
         _select_image(soup, profile_url),
+        _meta_content(soup, "og:image"),
     )
     if image_url:
         image_url = absolute_url(profile_url, image_url)
