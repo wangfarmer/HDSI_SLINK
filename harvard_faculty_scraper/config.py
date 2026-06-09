@@ -31,9 +31,9 @@ DEFAULT_SCHOOL_CONFIGS: dict[str, SchoolConfig] = {
         seed_urls=["https://hls.harvard.edu/faculty/"],
         allowed_domains=["hls.harvard.edu"],
         profile_link_patterns=[r"/faculty/"],
-        exclude_link_patterns=[r"\?", r"/faculty/$", r"/faculty/page/", r"#"],
-        profile_required_patterns=[r"/faculty/[^/]+/?$"],
-        list_page_patterns=[r"/faculty/page/\d+/?$"],
+        exclude_link_patterns=[r"/faculty/$", r"#"],
+        profile_required_patterns=[r"/faculty/[A-Za-z0-9][A-Za-z0-9-]*/?$"],
+        list_page_patterns=[r"/faculty/\?page=\d+$", r"/faculty/page/\d+/?$"],
     ),
     "harvard_graduate_school_of_design": SchoolConfig(
         key="harvard_graduate_school_of_design",
