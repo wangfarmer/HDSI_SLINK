@@ -154,6 +154,21 @@ for /f "tokens=1 delims=	" %s in ('python -m harvard_faculty_scraper.cli list-sc
 
 If you save the command in a `.bat` file, change `%s` to `%%s`.
 
+## Current built-in school status
+
+Smoke-tested status as of the current scraper version:
+
+| School key | Status | Notes |
+| --- | --- | --- |
+| `harvard_law_school` | Works | Discovery finds about 83 public faculty profile URLs. |
+| `harvard_graduate_school_of_design` | Works | Discovery finds about 53 public faculty profile URLs. |
+| `harvard_education_school` | Works | Discovery finds about 252 public faculty profile URLs. |
+| `harvard_kennedy_school` | Blocked | Public directory currently returns HTTP 403 to scripted requests. |
+| `harvard_divinity_school` | Blocked | Public people page currently returns HTTP 403 to scripted requests. |
+| `harvard_business_school` | Needs tuning | Seed page returns no static profile links in the current HTML response. |
+| `harvard_medical_school` | Needs tuning | Current seed/config does not discover profile links yet. |
+| `harvard_t_h_chan_school_public_health` | Needs tuning | Current seed/config does not discover profile links yet. |
+
 ## HTTP 403 Forbidden
 
 Some Harvard school sites may reject non-browser-looking requests or require browser verification. The scraper now sends browser-like default headers, but a school can still block automated access.
