@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from .models import SchoolConfig
+
+
+DEFAULT_SCHOOL_CONFIGS: dict[str, SchoolConfig] = {
+    "harvard_kennedy_school": SchoolConfig(
+        key="harvard_kennedy_school",
+        name="Harvard Kennedy School",
+        seed_urls=["https://www.hks.harvard.edu/faculty-research/faculty-directory"],
+        allowed_domains=["www.hks.harvard.edu", "hks.harvard.edu"],
+        profile_link_patterns=[r"/faculty-research/faculty-directory/"],
+        exclude_link_patterns=[r"\?", r"#", r"/faculty-directory$"],
+        profile_required_patterns=[r"/faculty-research/faculty-directory/[^/]+$"],
+    ),
+    "harvard_business_school": SchoolConfig(
+        key="harvard_business_school",
+        name="Harvard Business School",
+        seed_urls=["https://www.hbs.edu/faculty/Pages/browse.aspx"],
+        allowed_domains=["www.hbs.edu", "hbs.edu"],
+        profile_link_patterns=[r"/faculty/Pages/profile\.aspx", r"/faculty/Pages/item\.aspx"],
+        exclude_link_patterns=[r"#"],
+        profile_required_patterns=[r"/faculty/Pages/profile\.aspx", r"/faculty/Pages/item\.aspx"],
+    ),
+    "harvard_law_school": SchoolConfig(
+        key="harvard_law_school",
+        name="Harvard Law School",
+        seed_urls=["https://hls.harvard.edu/faculty/"],
+        allowed_domains=["hls.harvard.edu"],
+        profile_link_patterns=[r"/faculty/"],
+        exclude_link_patterns=[r"/faculty/$", r"/faculty/page/", r"#"],
+        profile_required_patterns=[r"/faculty/[^/]+/?$"],
+        list_page_patterns=[r"/faculty/page/\d+/?$"],
+    ),
+    "harvard_graduate_school_of_design": SchoolConfig(
+        key="harvard_graduate_school_of_design",
+        name="Harvard Graduate School of Design",
+        seed_urls=["https://www.gsd.harvard.edu/faculty/"],
+        allowed_domains=["www.gsd.harvard.edu", "gsd.harvard.edu"],
+        profile_link_patterns=[r"/person/"],
+        exclude_link_patterns=[r"#"],
+        profile_required_patterns=[r"/person/[^/]+/?$"],
+    ),
+    "harvard_medical_school": SchoolConfig(
+        key="harvard_medical_school",
+        name="Harvard Medical School",
+        seed_urls=["https://hms.harvard.edu/faculty-staff/faculty"],
+        allowed_domains=["hms.harvard.edu"],
+        profile_link_patterns=[r"/faculty-staff/"],
+        exclude_link_patterns=[r"#", r"/faculty-staff/faculty$"],
+        profile_required_patterns=[r"/faculty-staff/[^/]+/?$"],
+    ),
+    "harvard_t_h_chan_school_public_health": SchoolConfig(
+        key="harvard_t_h_chan_school_public_health",
+        name="Harvard T.H. Chan School of Public Health",
+        seed_urls=["https://www.hsph.harvard.edu/faculty/"],
+        allowed_domains=["www.hsph.harvard.edu", "hsph.harvard.edu"],
+        profile_link_patterns=[r"/profile/", r"/faculty/"],
+        exclude_link_patterns=[r"#", r"/faculty/$"],
+        profile_required_patterns=[r"/profile/[^/]+/?$", r"/faculty/[^/]+/?$"],
+    ),
+    "harvard_divinity_school": SchoolConfig(
+        key="harvard_divinity_school",
+        name="Harvard Divinity School",
+        seed_urls=["https://hds.harvard.edu/people"],
+        allowed_domains=["hds.harvard.edu"],
+        profile_link_patterns=[r"/people/"],
+        exclude_link_patterns=[r"#", r"/people$"],
+        profile_required_patterns=[r"/people/[^/]+/?$"],
+    ),
+    "harvard_education_school": SchoolConfig(
+        key="harvard_education_school",
+        name="Harvard Graduate School of Education",
+        seed_urls=["https://www.gse.harvard.edu/directory/faculty"],
+        allowed_domains=["www.gse.harvard.edu", "gse.harvard.edu"],
+        profile_link_patterns=[r"/directory/faculty/"],
+        exclude_link_patterns=[r"#", r"/directory/faculty$"],
+        profile_required_patterns=[r"/directory/faculty/[^/]+/?$"],
+    ),
+}
+
+
+def get_school_config(key: str) -> SchoolConfig:
+    try:
+        return DEFAULT_SCHOOL_CONFIGS[key]
+    except KeyError as exc:
+        available = ", ".join(sorted(DEFAULT_SCHOOL_CONFIGS))
+        raise KeyError(f"Unknown school '{key}'. Available schools: {available}") from exc
+
+
+def load_school_config(path: Path) -> SchoolConfig:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return SchoolConfig(
+        key=payload["key"],
+        name=payload["name"],
+        seed_urls=list(payload["seed_urls"]),
+        allowed_domains=list(payload["allowed_domains"]),
+        profile_link_patterns=list(payload.get("profile_link_patterns", [])),
+        exclude_link_patterns=list(payload.get("exclude_link_patterns", [])),
+        profile_required_patterns=list(payload.get("profile_required_patterns", [])),
+        list_page_patterns=list(payload.get("list_page_patterns", [])),
+    )
