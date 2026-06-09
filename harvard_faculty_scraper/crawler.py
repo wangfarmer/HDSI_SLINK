@@ -5,7 +5,7 @@ import time
 from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path
-from typing import TextIO
+from typing import Callable, TextIO
 from urllib.parse import urldefrag
 
 import requests
@@ -16,10 +16,15 @@ from .models import FacultyRecord, SchoolConfig
 from .utils import absolute_url, dedupe_preserve_order, domain_allowed, matches_any
 
 
-DEFAULT_USER_AGENT = (
-    "HDSI-SLINK faculty research scraper/0.1 "
-    "(academic prototype; contact project owner before large crawls)"
-)
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
+
+DEFAULT_HEADERS = {
+    "User-Agent": DEFAULT_USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 
 class HarvardFacultyCrawler:
@@ -38,9 +43,15 @@ class HarvardFacultyCrawler:
         self.timeout_seconds = timeout_seconds
         self.delay_seconds = delay_seconds
         self.session = session or requests.Session()
-        self.session.headers.update({"User-Agent": user_agent})
+        self.session.headers.update(DEFAULT_HEADERS | {"User-Agent": user_agent})
 
-    def discover_profile_urls(self, *, max_pages: int = 20) -> list[str]:
+    def discover_profile_urls(
+        self,
+        *,
+        max_pages: int = 20,
+        continue_on_error: bool = False,
+        on_error: Callable[[str, Exception], None] | None = None,
+    ) -> list[str]:
         """Discover profile links from configured seed/list pages."""
 
         queue = list(self.config.seed_urls)
@@ -52,7 +63,14 @@ class HarvardFacultyCrawler:
             if url in visited:
                 continue
             visited.add(url)
-            html = self.fetch_text(url)
+            try:
+                html = self.fetch_text(url)
+            except requests.RequestException as exc:
+                if on_error:
+                    on_error(url, exc)
+                if continue_on_error:
+                    continue
+                raise
             soup = BeautifulSoup(html, "html.parser")
 
             for link in soup.select("a[href]"):
@@ -77,12 +95,21 @@ class HarvardFacultyCrawler:
         *,
         source_directory_url: str,
         max_profiles: int | None = None,
+        continue_on_error: bool = False,
+        on_error: Callable[[str, Exception], None] | None = None,
     ) -> list[FacultyRecord]:
         records: list[FacultyRecord] = []
         for index, profile_url in enumerate(profile_urls):
             if max_profiles is not None and index >= max_profiles:
                 break
-            html = self.fetch_text(profile_url)
+            try:
+                html = self.fetch_text(profile_url)
+            except requests.RequestException as exc:
+                if on_error:
+                    on_error(profile_url, exc)
+                if continue_on_error:
+                    continue
+                raise
             records.append(
                 extract_faculty_record(
                     html,

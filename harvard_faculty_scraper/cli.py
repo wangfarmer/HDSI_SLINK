@@ -67,6 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Custom HTTP User-Agent for your run.",
     )
+    scrape_parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="Log HTTP errors and continue. Useful for all-school batch runs.",
+    )
     return parser
 
 
@@ -83,7 +88,11 @@ def scrape(args: argparse.Namespace) -> int:
         crawler_kwargs["user_agent"] = args.user_agent
 
     crawler = HarvardFacultyCrawler(config, **crawler_kwargs)
-    profile_urls = crawler.discover_profile_urls(max_pages=args.max_pages)
+    profile_urls = crawler.discover_profile_urls(
+        max_pages=args.max_pages,
+        continue_on_error=args.continue_on_error,
+        on_error=print_fetch_error,
+    )
 
     if args.discover_only:
         for url in profile_urls:
@@ -94,6 +103,8 @@ def scrape(args: argparse.Namespace) -> int:
         profile_urls,
         source_directory_url=", ".join(config.seed_urls),
         max_profiles=args.max_profiles,
+        continue_on_error=args.continue_on_error,
+        on_error=print_fetch_error,
     )
 
     if args.output:
@@ -107,6 +118,18 @@ def scrape(args: argparse.Namespace) -> int:
         print_jsonl(records, sys.stdout)
 
     return 0
+
+
+def print_fetch_error(url: str, exc: Exception) -> None:
+    print(f"[fetch-error] {url}: {exc}", file=sys.stderr)
+    if "403" in str(exc):
+        print(
+            "[fetch-error] Received HTTP 403 Forbidden. The site may block automated "
+            "requests, require browser verification, or reject the current User-Agent. "
+            "Try a smaller run, a school-specific seed URL, or --user-agent with a "
+            "current browser User-Agent.",
+            file=sys.stderr,
+        )
 
 
 def load_config_from_args(args: argparse.Namespace):

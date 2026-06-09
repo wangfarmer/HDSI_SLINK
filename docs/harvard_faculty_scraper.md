@@ -135,3 +135,43 @@ Do not overwrite a high-confidence ORCID field with lower-confidence scraped tex
 - Use small `--max-pages` and `--max-profiles` values while tuning.
 - Keep `--delay-seconds` at 1 or higher unless you have explicit permission.
 - Do not commit files under `data/raw` or `data/processed`; the repository ignores them by default.
+
+## Windows Anaconda Prompt examples
+
+Run all built-in schools and keep going if one school returns an HTTP error:
+
+```bat
+python -m pip install -e .
+
+if not exist data\raw mkdir data\raw
+if not exist logs mkdir logs
+
+for /f "tokens=1 delims=	" %s in ('python -m harvard_faculty_scraper.cli list-schools') do (
+  echo === scraping %s ===
+  python -m harvard_faculty_scraper.cli scrape --school %s --max-pages 100 --max-profiles 10000 --delay-seconds 1 --continue-on-error --format jsonl --output data\raw\%s_faculty.jsonl > logs\%s.log 2>&1
+)
+```
+
+If you save the command in a `.bat` file, change `%s` to `%%s`.
+
+## HTTP 403 Forbidden
+
+Some Harvard school sites may reject non-browser-looking requests or require browser verification. The scraper now sends browser-like default headers, but a school can still block automated access.
+
+If you see `403 Client Error: Forbidden`:
+
+1. Try a smaller discovery run first:
+
+   ```bat
+   python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --discover-only --max-pages 1 --delay-seconds 2
+   ```
+
+2. For batch runs, add `--continue-on-error` so one school does not stop the whole run.
+
+3. If your browser can open the page but Python cannot, pass your own current browser User-Agent:
+
+   ```bat
+   python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --discover-only --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
+   ```
+
+4. If the site still blocks access, use a school-specific public directory page with `--seed-url`, or collect that school manually.
