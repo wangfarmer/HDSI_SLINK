@@ -210,7 +210,7 @@ Smoke-tested status as of the current scraper version:
 
 | School key | Status | Notes |
 | --- | --- | --- |
-| `harvard_law_school` | Works | Discovery finds about 83 public faculty profile URLs. |
+| `harvard_law_school` | Works | Discovery finds 387 public faculty profile URLs from the explicit `?page=1` paginated directory. |
 | `harvard_graduate_school_of_design` | Works | Discovery finds about 128 public faculty/staff/affiliate `/person/...` profile URLs. |
 | `harvard_education_school` | Works | Discovery finds about 679 public faculty/staff/PhD student/EdLD student directory profile URLs. |
 | `harvard_kennedy_school` | Blocked | Public directory currently returns HTTP 403 to scripted requests. |

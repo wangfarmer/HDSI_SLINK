@@ -60,6 +60,41 @@ class HarvardFacultyCrawlerTest(unittest.TestCase):
             ],
         )
 
+    @unittest.skipIf(HarvardFacultyCrawler is None, "beautifulsoup4/requests are not installed")
+    def test_follows_hls_query_style_pagination(self) -> None:
+        config = SchoolConfig(
+            key="hls",
+            name="Harvard Law School",
+            seed_urls=["https://hls.harvard.edu/faculty/?page=1"],
+            allowed_domains=["hls.harvard.edu"],
+            profile_link_patterns=[r"/faculty/"],
+            exclude_link_patterns=[r"/faculty/$", r"#"],
+            profile_required_patterns=[r"/faculty/[A-Za-z0-9][A-Za-z0-9-]*/?$"],
+            list_page_patterns=[r"/faculty/\?(?:type=hls_faculty&)?page=\d+(?:&type=hls_faculty)?$"],
+        )
+        session = FakeSession(
+            {
+                "https://hls.harvard.edu/faculty/?page=1": """
+                <a href="/faculty/william-p-alford/">William P. Alford</a>
+                <a href="?page=2&type=hls_faculty">Next</a>
+                """,
+                "https://hls.harvard.edu/faculty/?page=2&type=hls_faculty": """
+                <a href="/faculty/sabrineh-ardalan/">Sabrineh Ardalan</a>
+                """
+            }
+        )
+        crawler = HarvardFacultyCrawler(config, session=session, delay_seconds=0)
+
+        urls = crawler.discover_profile_urls(max_pages=5)
+
+        self.assertEqual(
+            urls,
+            [
+                "https://hls.harvard.edu/faculty/william-p-alford",
+                "https://hls.harvard.edu/faculty/sabrineh-ardalan",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
