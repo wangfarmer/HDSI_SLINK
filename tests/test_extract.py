@@ -50,11 +50,35 @@ class ExtractFacultyRecordTest(unittest.TestCase):
 
         self.assertEqual(record.full_name, "Jane Q. Scholar")
         self.assertEqual(record.title, "Professor of Collective Intelligence")
+        self.assertEqual(record.role_category, "faculty")
         self.assertEqual(record.email, "jane_scholar@example.harvard.edu")
         self.assertEqual(record.image_url, "https://example.harvard.edu/images/jane.jpg")
         self.assertEqual(record.affiliation, "Example School")
         self.assertIn("people and AI systems collaborate", record.bio or "")
         self.assertEqual(record.research_interests, ["collective intelligence", "network science"])
+
+    @unittest.skipIf(extract_faculty_record is None, "beautifulsoup4 is not installed")
+    def test_infers_postdoc_role_category(self) -> None:
+        html = """
+        <html>
+          <body>
+            <main>
+              <h1>Robin Researcher</h1>
+              <p class="profile-title">Postdoctoral Fellow in Education</p>
+              <p>Robin studies collaboration and learning systems.</p>
+            </main>
+          </body>
+        </html>
+        """
+
+        record = extract_faculty_record(
+            html,
+            profile_url="https://example.harvard.edu/people/robin-researcher",
+            source_school="Example School",
+            source_directory_url="https://example.harvard.edu/people",
+        )
+
+        self.assertEqual(record.role_category, "postdoc")
 
 
 if __name__ == "__main__":

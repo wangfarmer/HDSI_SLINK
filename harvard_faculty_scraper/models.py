@@ -6,7 +6,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class SchoolConfig:
-    """Configuration for one Harvard school or faculty directory."""
+    """Configuration for one Harvard school people/researcher directory."""
 
     key: str
     name: str
@@ -20,16 +20,18 @@ class SchoolConfig:
 
 @dataclass
 class FacultyRecord:
-    """Normalized faculty profile record used by requirement 2."""
+    """Normalized Harvard person/researcher profile record used by requirement 2."""
 
     source_school: str
     source_directory_url: str
     profile_url: str
     full_name: str | None = None
     title: str | None = None
+    role_category: str | None = None
     affiliation: str | None = None
     email: str | None = None
     image_url: str | None = None
+    local_image_path: str | None = None
     bio: str | None = None
     research_interests: list[str] = field(default_factory=list)
     raw_text_excerpt: str | None = None

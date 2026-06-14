@@ -38,7 +38,11 @@ DEFAULT_SCHOOL_CONFIGS: dict[str, SchoolConfig] = {
     "harvard_graduate_school_of_design": SchoolConfig(
         key="harvard_graduate_school_of_design",
         name="Harvard Graduate School of Design",
-        seed_urls=["https://www.gsd.harvard.edu/people/faculty/"],
+        seed_urls=[
+            "https://www.gsd.harvard.edu/people/faculty/",
+            "https://www.gsd.harvard.edu/people/staff/",
+            "https://www.gsd.harvard.edu/people/affiliate/",
+        ],
         allowed_domains=["www.gsd.harvard.edu", "gsd.harvard.edu"],
         profile_link_patterns=[r"/person/"],
         exclude_link_patterns=[r"#"],
@@ -74,11 +78,22 @@ DEFAULT_SCHOOL_CONFIGS: dict[str, SchoolConfig] = {
     "harvard_education_school": SchoolConfig(
         key="harvard_education_school",
         name="Harvard Graduate School of Education",
-        seed_urls=["https://www.gse.harvard.edu/directory/faculty"],
+        seed_urls=[
+            "https://www.gse.harvard.edu/directory/faculty",
+            "https://www.gse.harvard.edu/directory/staff",
+            "https://www.gse.harvard.edu/directory/phd-students",
+            "https://www.gse.harvard.edu/directory/edld-students",
+        ],
         allowed_domains=["www.gse.harvard.edu", "gse.harvard.edu"],
-        profile_link_patterns=[r"/directory/faculty/"],
-        exclude_link_patterns=[r"#", r"/directory/faculty$"],
-        profile_required_patterns=[r"/directory/faculty/[^/]+/?$"],
+        profile_link_patterns=[r"/directory/(faculty|staff|phd-students|edld-students)/"],
+        exclude_link_patterns=[
+            r"#",
+            r"/directory/faculty$",
+            r"/directory/staff$",
+            r"/directory/phd-students$",
+            r"/directory/edld-students$",
+        ],
+        profile_required_patterns=[r"/directory/(faculty|staff|phd-students|edld-students)/[^/]+/?$"],
     ),
 }
 

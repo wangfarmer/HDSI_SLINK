@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import DEFAULT_SCHOOL_CONFIGS, get_school_config, load_school_config
 from .crawler import HarvardFacultyCrawler, print_jsonl, with_seed_urls, write_csv, write_jsonl
+from .export import write_person_folders
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,11 +33,11 @@ def main(argv: list[str] | None = None) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="harvard-faculty-scraper",
-        description="Collect Harvard faculty profile data for HUMA.I.N S-Link experiments.",
+        description="Collect Harvard people/researcher profile data for HUMA.I.N S-Link experiments.",
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    subparsers.add_parser("list-schools", help="List built-in Harvard school configs.")
+    subparsers.add_parser("list-schools", help="List built-in Harvard school/people configs.")
 
     show_config = subparsers.add_parser("show-config", help="Show one built-in school config.")
     show_config.add_argument("--school", choices=sorted(DEFAULT_SCHOOL_CONFIGS))
@@ -51,7 +52,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Override/add directory seed URL. Can be passed multiple times.",
     )
-    scrape_parser.add_argument("--output", type=Path, help="Output file. Defaults to stdout for JSONL.")
+    scrape_parser.add_argument("--output", type=Path, help="Output file or person-folder root. Defaults to stdout for JSONL.")
+    scrape_parser.add_argument(
+        "--output-layout",
+        choices=["flat", "person-folders"],
+        default="flat",
+        help="Flat writes one JSONL/CSV file. person-folders writes one folder per person.",
+    )
     scrape_parser.add_argument("--format", choices=["jsonl", "csv"], default="jsonl")
     scrape_parser.add_argument("--max-pages", type=int, default=20, help="Max directory/list pages to scan.")
     scrape_parser.add_argument("--max-profiles", type=int, default=25, help="Max profiles to fetch.")
@@ -71,6 +78,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--continue-on-error",
         action="store_true",
         help="Log HTTP errors and continue. Useful for all-school batch runs.",
+    )
+    scrape_parser.add_argument(
+        "--skip-images",
+        action="store_true",
+        help="For person-folders output, write profile JSONL but do not download profile pictures.",
     )
     return parser
 
@@ -107,7 +119,19 @@ def scrape(args: argparse.Namespace) -> int:
         on_error=print_fetch_error,
     )
 
-    if args.output:
+    if args.output_layout == "person-folders":
+        if not args.output:
+            raise SystemExit("--output is required when --output-layout person-folders is used.")
+        write_person_folders(
+            records,
+            args.output,
+            session=crawler.session,
+            download_images=not args.skip_images,
+            continue_on_error=args.continue_on_error,
+            on_error=print_fetch_error,
+            timeout_seconds=args.timeout_seconds,
+        )
+    elif args.output:
         if args.format == "csv":
             write_csv(records, args.output)
         else:

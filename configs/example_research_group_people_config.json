@@ -1,0 +1,31 @@
+{
+  "key": "example_research_group_people",
+  "name": "Example Harvard Research Group People",
+  "seed_urls": [
+    "https://example.harvard.edu/people",
+    "https://example.harvard.edu/team"
+  ],
+  "allowed_domains": [
+    "example.harvard.edu"
+  ],
+  "profile_link_patterns": [
+    "/people/",
+    "/person/",
+    "/team/"
+  ],
+  "exclude_link_patterns": [
+    "#",
+    "/news/",
+    "/events/",
+    "/publications/"
+  ],
+  "profile_required_patterns": [
+    "/people/[^/]+$",
+    "/person/[^/]+$",
+    "/team/[^/]+$"
+  ],
+  "list_page_patterns": [
+    "/people/page/[0-9]+$",
+    "/team/page/[0-9]+$"
+  ]
+}

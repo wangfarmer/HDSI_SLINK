@@ -1,10 +1,10 @@
-# Harvard faculty scraper
+# Harvard people/researcher scraper
 
 This is requirement 2 scaffolding for HUMA.I.N / S-Link:
 
-> Collect Harvard school faculty profile data, mainly image, basic profile information, bio, and email.
+> Collect Harvard school people/researcher profile data, mainly image, basic profile information, bio, and email.
 
-The code is intentionally a configurable scraper framework. Harvard schools use different CMS templates, so each school has its own seed URLs and link patterns in `harvard_faculty_scraper/config.py`.
+The code is intentionally a configurable scraper framework. Harvard schools, departments, labs, and research groups use different CMS templates, so each source has its own seed URLs and link patterns in `harvard_faculty_scraper/config.py` or a custom JSON config file.
 
 ## Install locally
 
@@ -50,6 +50,34 @@ python -m harvard_faculty_scraper.cli scrape \
   --output data/raw/harvard_kennedy_school_faculty.jsonl
 ```
 
+## Preferred person-folder output with profile pictures
+
+Use this layout when you want each person to have their own folder:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_education_school --max-pages 100 --max-profiles 10000 --delay-seconds 1 --continue-on-error --output-layout person-folders --output data\raw\harvard_education_school_people
+```
+
+Example output structure:
+
+```text
+data/raw/harvard_education_school_people/
+  Danielle S. Allen/
+    profile.jsonl
+    profile_picture.jpg
+  Drew Allen/
+    profile.jsonl
+    profile_picture.jpg
+```
+
+`profile.jsonl` contains the normalized profile record. If an image is downloaded successfully, the record's `local_image_path` field points to the saved image.
+
+To create folders without downloading images:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_education_school --max-pages 100 --max-profiles 10000 --delay-seconds 1 --continue-on-error --output-layout person-folders --skip-images --output data\raw\harvard_education_school_people
+```
+
 ## Scrape profiles to CSV
 
 ```bash
@@ -64,7 +92,7 @@ python -m harvard_faculty_scraper.cli scrape \
 
 ## Override seed URLs
 
-Use this when a school has a more specific faculty page than the built-in default.
+Use this when a school, department, lab, or research group has a more specific people page than the built-in default.
 
 ```bash
 python -m harvard_faculty_scraper.cli scrape \
@@ -75,7 +103,7 @@ python -m harvard_faculty_scraper.cli scrape \
 
 ## Use a custom school config
 
-Copy `configs/example_school_config.json`, update the URLs/patterns, then run:
+Copy `configs/example_school_config.json` or `configs/example_research_group_people_config.json`, update the URLs/patterns, then run:
 
 ```bash
 python -m harvard_faculty_scraper.cli scrape \
@@ -94,9 +122,11 @@ Each JSONL row is a `FacultyRecord`:
   "profile_url": "https://...",
   "full_name": "Jane Q. Scholar",
   "title": "Professor ...",
+  "role_category": "faculty",
   "affiliation": "Department or school",
   "email": "person@harvard.edu",
   "image_url": "https://...",
+  "local_image_path": "data/raw/.../Jane Q. Scholar/profile_picture.jpg",
   "bio": "Biography text...",
   "research_interests": ["network science", "collective intelligence"],
   "raw_text_excerpt": "First 1000 chars of page text...",
@@ -118,9 +148,29 @@ The extractor tries fields in this order:
 
 This should produce usable first-pass data, but each school may need custom tuning after you run samples.
 
+## Not just professors
+
+The scraper does not intentionally filter to professors. It follows the profile links exposed by the configured seed pages. To include students, postdocs, technicians, lab managers, research scientists, and other research staff, configure seed URLs that list those people.
+
+Examples:
+
+- HGSE built-in config includes faculty, staff, PhD students, and EdLD students.
+- GSD built-in config includes faculty, staff, and affiliates.
+- Lab or department pages can be added through `--seed-url` or a custom config file.
+
+The `role_category` field is inferred from title text when possible:
+
+- `faculty`
+- `postdoc`
+- `student`
+- `staff_or_technician`
+- `research_staff`
+- `fellow`
+- `other`
+
 ## ORCID merge path
 
-When the ORCID data arrives, use the scraped faculty output as the profile enrichment table. Recommended matching order:
+When the ORCID data arrives, use the scraped people/researcher output as the profile enrichment table. Recommended matching order:
 
 1. Exact ORCID if available in a profile or ORCID table.
 2. Exact institutional email.
@@ -148,7 +198,7 @@ if not exist logs mkdir logs
 
 for /f "tokens=1 delims=	" %s in ('python -m harvard_faculty_scraper.cli list-schools') do (
   echo === scraping %s ===
-  python -m harvard_faculty_scraper.cli scrape --school %s --max-pages 100 --max-profiles 10000 --delay-seconds 1 --continue-on-error --format jsonl --output data\raw\%s_faculty.jsonl > logs\%s.log 2>&1
+  python -m harvard_faculty_scraper.cli scrape --school %s --max-pages 100 --max-profiles 10000 --delay-seconds 1 --continue-on-error --output-layout person-folders --output data\raw\%s_people > logs\%s.log 2>&1
 )
 ```
 
@@ -161,8 +211,8 @@ Smoke-tested status as of the current scraper version:
 | School key | Status | Notes |
 | --- | --- | --- |
 | `harvard_law_school` | Works | Discovery finds about 83 public faculty profile URLs. |
-| `harvard_graduate_school_of_design` | Works | Discovery finds about 53 public faculty profile URLs. |
-| `harvard_education_school` | Works | Discovery finds about 252 public faculty profile URLs. |
+| `harvard_graduate_school_of_design` | Works | Discovery finds about 128 public faculty/staff/affiliate `/person/...` profile URLs. |
+| `harvard_education_school` | Works | Discovery finds about 679 public faculty/staff/PhD student/EdLD student directory profile URLs. |
 | `harvard_kennedy_school` | Blocked | Public directory currently returns HTTP 403 to scripted requests. |
 | `harvard_divinity_school` | Blocked | Public people page currently returns HTTP 403 to scripted requests. |
 | `harvard_business_school` | Needs tuning | Seed page returns no static profile links in the current HTML response. |

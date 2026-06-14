@@ -16,7 +16,16 @@ TITLE_HINTS = (
     "lecturer",
     "dean",
     "fellow",
+    "postdoctoral",
+    "postdoc",
+    "doctoral",
+    "student",
+    "technician",
+    "staff",
+    "associate",
+    "assistant",
     "research scientist",
+    "researcher",
     "instructor",
     "faculty",
     "chair",
@@ -123,6 +132,7 @@ def extract_faculty_record(
         profile_url=profile_url,
         full_name=name,
         title=title,
+        role_category=_infer_role_category(title),
         affiliation=affiliation,
         email=email,
         image_url=image_url,
@@ -338,6 +348,25 @@ def _title_from_near_header(soup: BeautifulSoup) -> str | None:
 def _looks_like_title(text: str) -> bool:
     lowered = text.lower()
     return any(hint in lowered for hint in TITLE_HINTS) and len(text) <= 220
+
+
+def _infer_role_category(title: str | None) -> str | None:
+    if not title:
+        return None
+    lowered = title.lower()
+    if "postdoctoral" in lowered or "postdoc" in lowered:
+        return "postdoc"
+    if "student" in lowered or "doctoral" in lowered or "ph.d" in lowered or "phd" in lowered:
+        return "student"
+    if "technician" in lowered or "lab manager" in lowered or "staff" in lowered:
+        return "staff_or_technician"
+    if "research scientist" in lowered or "research associate" in lowered or "researcher" in lowered:
+        return "research_staff"
+    if "professor" in lowered or "lecturer" in lowered or "instructor" in lowered or "faculty" in lowered:
+        return "faculty"
+    if "fellow" in lowered:
+        return "fellow"
+    return "other"
 
 
 def _clean_name(value: str | None) -> str | None:
