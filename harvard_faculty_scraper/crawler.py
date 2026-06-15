@@ -43,11 +43,15 @@ class HarvardFacultyCrawler:
         delay_seconds: float = 1.0,
         user_agent: str = DEFAULT_USER_AGENT,
         http_client: str = "requests",
+        request_retries: int = 3,
+        request_backoff_seconds: float = 10.0,
         session: requests.Session | None = None,
     ) -> None:
         self.config = config
         self.timeout_seconds = timeout_seconds
         self.delay_seconds = delay_seconds
+        self.request_retries = request_retries
+        self.request_backoff_seconds = request_backoff_seconds
         self.session = session or _make_session(http_client)
         self.session.headers.update(DEFAULT_HEADERS | {"User-Agent": user_agent})
 
@@ -114,8 +118,7 @@ class HarvardFacultyCrawler:
             while next_url and pages_seen < max_pages:
                 pages_seen += 1
                 try:
-                    response = self.session.get(next_url, timeout=self.timeout_seconds)
-                    response.raise_for_status()
+                    response = self.fetch_response(next_url)
                     payload = response.json()
                 except (Exception, ValueError) as exc:
                     if on_error:
@@ -175,9 +178,25 @@ class HarvardFacultyCrawler:
         return records
 
     def fetch_text(self, url: str) -> str:
-        response = self.session.get(url, timeout=self.timeout_seconds)
-        response.raise_for_status()
+        response = self.fetch_response(url)
         return response.text
+
+    def fetch_response(self, url: str):
+        attempts = max(1, self.request_retries + 1)
+        response = None
+        for attempt in range(attempts):
+            response = self.session.get(url, timeout=self.timeout_seconds)
+            status_code = getattr(response, "status_code", None)
+            if status_code not in {429, 500, 502, 503, 504}:
+                response.raise_for_status()
+                return response
+            if attempt == attempts - 1:
+                response.raise_for_status()
+                return response
+            time.sleep(_retry_sleep_seconds(response, attempt, self.request_backoff_seconds))
+        if response is None:
+            raise ValueError("No response received")
+        return response
 
     def sleep(self) -> None:
         if self.delay_seconds > 0:
@@ -305,3 +324,13 @@ def _safe_int(value: str | None) -> int | None:
         return int(value)
     except ValueError:
         return None
+
+
+def _retry_sleep_seconds(response: object, attempt: int, backoff_seconds: float) -> float:
+    retry_after = getattr(response, "headers", {}).get("Retry-After")
+    if retry_after:
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+    return max(0.0, backoff_seconds * (attempt + 1))

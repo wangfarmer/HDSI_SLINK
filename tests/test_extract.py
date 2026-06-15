@@ -80,6 +80,33 @@ class ExtractFacultyRecordTest(unittest.TestCase):
 
         self.assertEqual(record.role_category, "postdoc")
 
+    @unittest.skipIf(extract_faculty_record is None, "beautifulsoup4 is not installed")
+    def test_prefers_hbs_headshot_over_publication_images(self) -> None:
+        html = """
+        <html>
+          <body>
+            <main>
+              <h1>Max H. Scholar</h1>
+              <img src="https://www.hbs.edu/ris/Profile%20Files/book%20cover.jpg" alt="Book cover">
+              <img src="http://harvardbusiness.org/products/1023-HBK-ENG/thumbnail/thumbnail.gif" alt="Product">
+              <img src="https://www.hbs.edu/Style%20Library/api/headshot.aspx?id=10653&amp;size=medium" alt="Max H. Scholar">
+            </main>
+          </body>
+        </html>
+        """
+
+        record = extract_faculty_record(
+            html,
+            profile_url="https://pubwww.hbs.edu/faculty/Pages/profile.aspx?facId=10653",
+            source_school="Harvard Business School",
+            source_directory_url="https://pubwww.hbs.edu/faculty/Pages/browse.aspx",
+        )
+
+        self.assertEqual(
+            record.image_url,
+            "https://www.hbs.edu/Style%20Library/api/headshot.aspx?id=10653&size=medium",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

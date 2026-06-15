@@ -266,3 +266,15 @@ If you only need the JSON profiles first, skip images and download them in a lat
 ```bat
 python -m harvard_faculty_scraper.cli scrape --school harvard_graduate_school_of_design --max-pages 100 --max-profiles 10000 --delay-seconds 1 --skip-images --continue-on-error --output-layout person-folders --output data\raw\harvard_gsd_people
 ```
+
+For HBS, slow both profile-page and image requests if you see 429s:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_business_school --max-pages 100 --max-profiles 10000 --delay-seconds 3 --request-retries 5 --request-backoff-seconds 20 --image-delay-seconds 5 --image-retries 5 --image-backoff-seconds 20 --continue-on-error --output-layout person-folders --output data\raw\harvard_business_school_people
+```
+
+If HBS still rate-limits, run JSON first without images:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_business_school --max-pages 100 --max-profiles 10000 --delay-seconds 3 --request-retries 5 --request-backoff-seconds 20 --skip-images --continue-on-error --output-layout person-folders --output data\raw\harvard_business_school_people
+```

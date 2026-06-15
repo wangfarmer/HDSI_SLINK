@@ -106,7 +106,7 @@ def extract_faculty_record(
 
     image_url = _first_nonempty(
         _json_value(json_ld, "image"),
-        _select_image(soup, profile_url),
+        _select_image(soup, profile_url, name),
         _meta_content(soup, "og:image"),
     )
     if image_url:
@@ -224,21 +224,74 @@ def _select_text(
     return None
 
 
-def _select_image(soup: BeautifulSoup, base_url: str) -> str | None:
-    selectors = [
-        ".profile img",
-        ".person img",
-        ".faculty img",
-        "article img",
-        "main img",
-        "img",
-    ]
-    for selector in selectors:
-        for tag in soup.select(selector):
-            src = tag.get("src") or tag.get("data-src")
-            if src:
-                return absolute_url(base_url, str(src))
-    return None
+def _select_image(soup: BeautifulSoup, base_url: str, person_name: str | None = None) -> str | None:
+    candidates: list[tuple[int, str]] = []
+    for tag in soup.select("img"):
+        src = tag.get("src") or tag.get("data-src")
+        if not src:
+            continue
+        url = absolute_url(base_url, str(src))
+        if not url or _looks_like_non_profile_image(url):
+            continue
+        score = _profile_image_score(tag, url, person_name)
+        if score > 0:
+            candidates.append((score, url))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1]
+
+
+def _looks_like_non_profile_image(url: str) -> bool:
+    lowered = url.lower()
+    non_profile_markers = (
+        "/products/",
+        "/thumbnail/",
+        "thumbnail.gif",
+        "article_assets",
+        "book-cover",
+        "book_cover",
+        "cover%20",
+        "rev%20cover",
+        "profile%20files/",
+        "profile files/",
+        "hbr/",
+    )
+    return any(marker in lowered for marker in non_profile_markers)
+
+
+def _profile_image_score(tag: Tag, url: str, person_name: str | None) -> int:
+    lowered_url = url.lower()
+    alt = clean_text(str(tag.get("alt") or "")) or ""
+    classes = " ".join(str(value) for value in (tag.get("class") or []))
+    context = " ".join([lowered_url, alt.lower(), classes.lower()])
+    score = 0
+    strong_markers = (
+        "headshot",
+        "profile-photo",
+        "profile_photo",
+        "profile-photos",
+        "profile_thumbnail",
+        "faculty/images",
+        "bio_images",
+        "employee",
+        "photohandler.ashx",
+    )
+    if any(marker in context for marker in strong_markers):
+        score += 10
+    if any(marker in context for marker in ("profile", "person", "people", "faculty", "portrait")):
+        score += 4
+    if person_name and alt and _name_tokens_overlap(person_name, alt):
+        score += 6
+    if tag.find_parent(["article", "header"]):
+        score += 1
+    return score
+
+
+def _name_tokens_overlap(person_name: str, alt: str) -> bool:
+    name_tokens = {token.lower() for token in re.findall(r"[A-Za-z]+", person_name) if len(token) > 1}
+    alt_tokens = {token.lower() for token in re.findall(r"[A-Za-z]+", alt) if len(token) > 1}
+    return bool(name_tokens & alt_tokens)
 
 
 def _email_from_mailto(soup: BeautifulSoup) -> str | None:

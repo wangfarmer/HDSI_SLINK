@@ -1,5 +1,8 @@
 import unittest
 from importlib.util import find_spec
+from unittest.mock import patch
+
+import requests
 
 from harvard_faculty_scraper.models import SchoolConfig
 
@@ -10,12 +13,21 @@ else:
 
 
 class FakeResponse:
-    def __init__(self, text: str = "", json_payload=None, headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        text: str = "",
+        json_payload=None,
+        headers: dict[str, str] | None = None,
+        status_code: int = 200,
+    ) -> None:
         self.text = text
         self._json_payload = json_payload
         self.headers = headers or {}
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} Client Error")
         return None
 
     def json(self):
@@ -31,6 +43,8 @@ class FakeSession:
 
     def get(self, url: str, timeout: float) -> FakeResponse:
         value = self.pages[url]
+        if isinstance(value, list):
+            return value.pop(0)
         if isinstance(value, FakeResponse):
             return value
         return FakeResponse(text=value)
@@ -169,6 +183,36 @@ class HarvardFacultyCrawlerTest(unittest.TestCase):
                 "https://hsph.harvard.edu/profile/jorge-e-chavarro",
             ],
         )
+
+    @unittest.skipIf(HarvardFacultyCrawler is None, "beautifulsoup4/requests are not installed")
+    def test_fetch_text_retries_rate_limited_page(self) -> None:
+        config = SchoolConfig(
+            key="hbs",
+            name="Harvard Business School",
+            seed_urls=[],
+            allowed_domains=["pubwww.hbs.edu"],
+        )
+        session = FakeSession(
+            {
+                "https://pubwww.hbs.edu/faculty/Pages/profile.aspx?facId=10653": [
+                    FakeResponse(status_code=429, headers={"Retry-After": "0"}),
+                    FakeResponse(text="<html>ok</html>"),
+                ]
+            }
+        )
+        crawler = HarvardFacultyCrawler(
+            config,
+            session=session,
+            delay_seconds=0,
+            request_retries=1,
+            request_backoff_seconds=0,
+        )
+
+        with patch("harvard_faculty_scraper.crawler.time.sleep") as sleep:
+            html = crawler.fetch_text("https://pubwww.hbs.edu/faculty/Pages/profile.aspx?facId=10653")
+
+        self.assertEqual(html, "<html>ok</html>")
+        sleep.assert_called_once_with(0.0)
 
 
 if __name__ == "__main__":

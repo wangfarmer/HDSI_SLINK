@@ -65,6 +65,18 @@ def build_parser() -> argparse.ArgumentParser:
     scrape_parser.add_argument("--delay-seconds", type=float, default=1.0, help="Delay between HTTP requests.")
     scrape_parser.add_argument("--timeout-seconds", type=float, default=20.0, help="HTTP timeout.")
     scrape_parser.add_argument(
+        "--request-retries",
+        type=int,
+        default=3,
+        help="Number of retries for rate-limited or transient page/API requests.",
+    )
+    scrape_parser.add_argument(
+        "--request-backoff-seconds",
+        type=float,
+        default=10.0,
+        help="Base backoff between page/API retry attempts.",
+    )
+    scrape_parser.add_argument(
         "--http-client",
         choices=["requests", "browser"],
         default="requests",
@@ -120,6 +132,8 @@ def scrape(args: argparse.Namespace) -> int:
         "timeout_seconds": args.timeout_seconds,
         "delay_seconds": args.delay_seconds,
         "http_client": args.http_client,
+        "request_retries": args.request_retries,
+        "request_backoff_seconds": args.request_backoff_seconds,
     }
     if args.user_agent:
         crawler_kwargs["user_agent"] = args.user_agent
@@ -184,9 +198,10 @@ def print_fetch_error(url: str, exc: Exception) -> None:
         )
     if "429" in str(exc):
         print(
-            "[fetch-error] Received HTTP 429 Too Many Requests. Slow image downloads "
-            "with --image-delay-seconds, increase --image-backoff-seconds, or use "
-            "--skip-images and rerun images later.",
+            "[fetch-error] Received HTTP 429 Too Many Requests. Slow page requests "
+            "with --delay-seconds/--request-backoff-seconds, slow image downloads "
+            "with --image-delay-seconds/--image-backoff-seconds, or use --skip-images "
+            "and rerun images later.",
             file=sys.stderr,
         )
 
