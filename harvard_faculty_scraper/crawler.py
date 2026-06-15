@@ -159,7 +159,27 @@ class HarvardFacultyCrawler:
         on_error: Callable[[str, Exception], None] | None = None,
         write_failed_records: bool = False,
     ) -> list[FacultyRecord]:
-        records: list[FacultyRecord] = []
+        return list(
+            self.iter_scrape_profiles(
+                profile_urls,
+                source_directory_url=source_directory_url,
+                max_profiles=max_profiles,
+                continue_on_error=continue_on_error,
+                on_error=on_error,
+                write_failed_records=write_failed_records,
+            )
+        )
+
+    def iter_scrape_profiles(
+        self,
+        profile_urls: Iterable[str],
+        *,
+        source_directory_url: str,
+        max_profiles: int | None = None,
+        continue_on_error: bool = False,
+        on_error: Callable[[str, Exception], None] | None = None,
+        write_failed_records: bool = False,
+    ):
         for index, profile_url in enumerate(profile_urls):
             if max_profiles is not None and index >= max_profiles:
                 break
@@ -170,19 +190,16 @@ class HarvardFacultyCrawler:
                     on_error(profile_url, exc)
                 if continue_on_error:
                     if write_failed_records:
-                        records.append(_failed_profile_record(self.config.name, source_directory_url, profile_url, exc))
+                        yield _failed_profile_record(self.config.name, source_directory_url, profile_url, exc)
                     continue
                 raise
-            records.append(
-                extract_faculty_record(
-                    html,
-                    profile_url=profile_url,
-                    source_school=self.config.name,
-                    source_directory_url=source_directory_url,
-                )
+            yield extract_faculty_record(
+                html,
+                profile_url=profile_url,
+                source_school=self.config.name,
+                source_directory_url=source_directory_url,
             )
             self.sleep()
-        return records
 
     def fetch_text(self, url: str) -> str:
         response = self.fetch_response(url)

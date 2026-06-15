@@ -201,6 +201,20 @@ This does four things:
 - continues the run when one profile or image still fails;
 - writes `_failures.jsonl` in the output folder and placeholder `profile.jsonl` records for failed profile pages.
 
+In `person-folders` mode, folders are written incrementally as each profile is scraped. You do not need to wait for the whole school to finish before seeing output.
+
+For large API-backed sources like Harvard T.H. Chan School of Public Health, start with JSON-only output first:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_t_h_chan_school_public_health --max-pages 100 --max-profiles 10000 --delay-seconds 2 --request-retries 5 --request-backoff-seconds 20 --skip-images --browser-fallback-on-403 --continue-on-error --write-failed-profile-records --progress-every 25 --output-layout person-folders --output data\raw\harvard_t_h_chan_school_public_health_people
+```
+
+To confirm HSPH discovery before scraping profiles:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_t_h_chan_school_public_health --discover-only --max-pages 100 --continue-on-error > data\raw\hsph_urls.txt
+```
+
 ## Windows Anaconda Prompt examples
 
 Run all built-in schools and keep going if one school returns an HTTP error:

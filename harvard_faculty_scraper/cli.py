@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import DEFAULT_SCHOOL_CONFIGS, get_school_config, load_school_config
 from .crawler import HarvardFacultyCrawler, print_jsonl, with_seed_urls, write_csv, write_jsonl
-from .export import write_person_folders
+from .export import PersonFolderWriter
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,6 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     scrape_parser.add_argument("--format", choices=["jsonl", "csv"], default="jsonl")
     scrape_parser.add_argument("--max-pages", type=int, default=20, help="Max directory/list pages to scan.")
     scrape_parser.add_argument("--max-profiles", type=int, default=25, help="Max profiles to fetch.")
+    scrape_parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=25,
+        help="Print progress every N profiles in person-folders mode. Use 0 to disable.",
+    )
     scrape_parser.add_argument("--delay-seconds", type=float, default=1.0, help="Delay between HTTP requests.")
     scrape_parser.add_argument("--timeout-seconds", type=float, default=20.0, help="HTTP timeout.")
     scrape_parser.add_argument(
@@ -165,20 +171,10 @@ def scrape(args: argparse.Namespace) -> int:
             print(url)
         return 0
 
-    records = crawler.scrape_profiles(
-        profile_urls,
-        source_directory_url=", ".join(config.seed_urls),
-        max_profiles=args.max_profiles,
-        continue_on_error=args.continue_on_error,
-        on_error=error_handler,
-        write_failed_records=args.write_failed_profile_records,
-    )
-
     if args.output_layout == "person-folders":
         if not args.output:
             raise SystemExit("--output is required when --output-layout person-folders is used.")
-        write_person_folders(
-            records,
+        writer = PersonFolderWriter(
             args.output,
             session=crawler.session,
             download_images=not args.skip_images,
@@ -189,17 +185,39 @@ def scrape(args: argparse.Namespace) -> int:
             image_retries=args.image_retries,
             image_backoff_seconds=args.image_backoff_seconds,
         )
+        written = 0
+        for record in crawler.iter_scrape_profiles(
+            profile_urls,
+            source_directory_url=", ".join(config.seed_urls),
+            max_profiles=args.max_profiles,
+            continue_on_error=args.continue_on_error,
+            on_error=error_handler,
+            write_failed_records=args.write_failed_profile_records,
+        ):
+            writer.write(record)
+            written += 1
+            if args.progress_every and written % args.progress_every == 0:
+                print(f"[progress] wrote {written} profile folders", file=sys.stderr)
         write_failures_if_needed(failures, args.output / "_failures.jsonl")
-    elif args.output:
-        if args.format == "csv":
-            write_csv(records, args.output)
-        else:
-            write_jsonl(records, args.output)
-        write_failures_if_needed(failures, args.output.with_name(f"{args.output.stem}_failures.jsonl"))
-    elif args.format == "csv":
-        raise SystemExit("CSV output requires --output.")
     else:
-        print_jsonl(records, sys.stdout)
+        records = crawler.scrape_profiles(
+            profile_urls,
+            source_directory_url=", ".join(config.seed_urls),
+            max_profiles=args.max_profiles,
+            continue_on_error=args.continue_on_error,
+            on_error=error_handler,
+            write_failed_records=args.write_failed_profile_records,
+        )
+        if args.output:
+            if args.format == "csv":
+                write_csv(records, args.output)
+            else:
+                write_jsonl(records, args.output)
+            write_failures_if_needed(failures, args.output.with_name(f"{args.output.stem}_failures.jsonl"))
+        elif args.format == "csv":
+            raise SystemExit("CSV output requires --output.")
+        else:
+            print_jsonl(records, sys.stdout)
 
     return 0
 

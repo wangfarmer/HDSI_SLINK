@@ -18,6 +18,64 @@ from .utils import clean_text
 FOLDER_SAFE_RE = re.compile(r"[^A-Za-z0-9._ -]+")
 
 
+class PersonFolderWriter:
+    """Incrementally write one folder per person."""
+
+    def __init__(
+        self,
+        output_dir: Path,
+        *,
+        session: requests.Session | None = None,
+        download_images: bool = True,
+        continue_on_error: bool = False,
+        on_error: Callable[[str, Exception], None] | None = None,
+        timeout_seconds: float = 20.0,
+        image_delay_seconds: float = 0.0,
+        image_retries: int = 3,
+        image_backoff_seconds: float = 5.0,
+    ) -> None:
+        self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.session = session or requests.Session()
+        self.download_images = download_images
+        self.continue_on_error = continue_on_error
+        self.on_error = on_error
+        self.timeout_seconds = timeout_seconds
+        self.image_delay_seconds = image_delay_seconds
+        self.image_retries = image_retries
+        self.image_backoff_seconds = image_backoff_seconds
+        self.used_folder_names: set[str] = set()
+
+    def write(self, record: FacultyRecord) -> Path:
+        folder = _person_folder(self.output_dir, record, self.used_folder_names)
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if self.download_images and record.image_url:
+            if self.image_delay_seconds > 0:
+                time.sleep(self.image_delay_seconds)
+            try:
+                record.local_image_path = str(
+                    download_profile_image(
+                        record.image_url,
+                        folder,
+                        session=self.session,
+                        timeout_seconds=self.timeout_seconds,
+                        retries=self.image_retries,
+                        backoff_seconds=self.image_backoff_seconds,
+                    )
+                )
+            except (Exception, ValueError, OSError) as exc:
+                record.extraction_notes.append(f"image_download_failed: {exc}")
+                if self.on_error:
+                    self.on_error(record.image_url, exc)
+                if not self.continue_on_error:
+                    raise
+
+        profile_path = folder / "profile.jsonl"
+        profile_path.write_text(json.dumps(record.to_dict(), ensure_ascii=False) + "\n", encoding="utf-8")
+        return folder
+
+
 def write_person_folders(
     records: Iterable[FacultyRecord],
     output_dir: Path,
@@ -33,37 +91,19 @@ def write_person_folders(
 ) -> None:
     """Write one folder per person with profile JSONL and optional profile picture."""
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    http = session or requests.Session()
-    used_folder_names: set[str] = set()
-
+    writer = PersonFolderWriter(
+        output_dir,
+        session=session,
+        download_images=download_images,
+        continue_on_error=continue_on_error,
+        on_error=on_error,
+        timeout_seconds=timeout_seconds,
+        image_delay_seconds=image_delay_seconds,
+        image_retries=image_retries,
+        image_backoff_seconds=image_backoff_seconds,
+    )
     for record in records:
-        folder = _person_folder(output_dir, record, used_folder_names)
-        folder.mkdir(parents=True, exist_ok=True)
-
-        if download_images and record.image_url:
-            if image_delay_seconds > 0:
-                time.sleep(image_delay_seconds)
-            try:
-                record.local_image_path = str(
-                    download_profile_image(
-                        record.image_url,
-                        folder,
-                        session=http,
-                        timeout_seconds=timeout_seconds,
-                        retries=image_retries,
-                        backoff_seconds=image_backoff_seconds,
-                    )
-                )
-            except (Exception, ValueError, OSError) as exc:
-                record.extraction_notes.append(f"image_download_failed: {exc}")
-                if on_error:
-                    on_error(record.image_url, exc)
-                if not continue_on_error:
-                    raise
-
-        profile_path = folder / "profile.jsonl"
-        profile_path.write_text(json.dumps(record.to_dict(), ensure_ascii=False) + "\n", encoding="utf-8")
+        writer.write(record)
 
 
 def download_profile_image(
