@@ -155,7 +155,7 @@ The scraper does not intentionally filter to professors. It follows the profile 
 Examples:
 
 - HGSE built-in config includes faculty, staff, PhD students, and EdLD students.
-- GSD built-in config includes faculty, staff, and affiliates.
+- GSD built-in config includes faculty, staff, and affiliates, including the people returned by each page's load-more API.
 - Lab or department pages can be added through `--seed-url` or a custom config file.
 
 The `role_category` field is inferred from title text when possible:
@@ -242,7 +242,7 @@ Smoke-tested status as of the current scraper version:
 | `harvard_kennedy_school` | Works | Discovery finds 229 public faculty profile URLs from the current `/faculty-profiles` directory. |
 | `harvard_business_school` | Works | Discovery finds 361 public faculty profile URLs from `pubwww.hbs.edu`. |
 | `harvard_law_school` | Works | Discovery finds 387 public faculty profile URLs from the explicit `?page=1` paginated directory. |
-| `harvard_graduate_school_of_design` | Works | Discovery finds about 128 public faculty/staff/affiliate `/person/...` profile URLs. |
+| `harvard_graduate_school_of_design` | Works | Discovery finds 449 public faculty/staff/affiliate `/person/...` profile URLs using the GSD people load-more API plus page links. |
 | `harvard_medical_school` | Partial | Discovery finds 113 public profiles from the DBMI people directory; HMS does not expose a single master public people directory in this config. |
 | `harvard_t_h_chan_school_public_health` | Works | Discovery finds 1548 public faculty/researcher profile URLs through the school's WordPress profiles API. |
 | `harvard_education_school` | Works | Discovery finds about 679 public faculty/staff/PhD student/EdLD student directory profile URLs. |

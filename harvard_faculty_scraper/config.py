@@ -47,6 +47,11 @@ DEFAULT_SCHOOL_CONFIGS: dict[str, SchoolConfig] = {
             "https://www.gsd.harvard.edu/people/staff/",
             "https://www.gsd.harvard.edu/people/affiliate/",
         ],
+        api_seed_urls=[
+            "https://www.gsd.harvard.edu/wp-json/gsd/v1/people?type=faculty&per_page=48&page=1",
+            "https://www.gsd.harvard.edu/wp-json/gsd/v1/people?type=staff&per_page=48&page=1",
+            "https://www.gsd.harvard.edu/wp-json/gsd/v1/people?type=affiliate&per_page=48&page=1",
+        ],
         allowed_domains=["www.gsd.harvard.edu", "gsd.harvard.edu"],
         profile_link_patterns=[r"/person/"],
         exclude_link_patterns=[r"#"],
