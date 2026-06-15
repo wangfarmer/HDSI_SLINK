@@ -214,6 +214,67 @@ class HarvardFacultyCrawlerTest(unittest.TestCase):
         self.assertEqual(html, "<html>ok</html>")
         sleep.assert_called_once_with(0.0)
 
+    @unittest.skipIf(HarvardFacultyCrawler is None, "beautifulsoup4/requests are not installed")
+    def test_fetch_text_uses_browser_fallback_for_403(self) -> None:
+        config = SchoolConfig(
+            key="hks",
+            name="Harvard Kennedy School",
+            seed_urls=[],
+            allowed_domains=["www.hks.harvard.edu"],
+        )
+        session = FakeSession(
+            {
+                "https://www.hks.harvard.edu/faculty-profiles": FakeResponse(status_code=403),
+            }
+        )
+        fallback_session = FakeSession(
+            {
+                "https://www.hks.harvard.edu/faculty-profiles": FakeResponse(text="<html>fallback ok</html>"),
+            }
+        )
+        crawler = HarvardFacultyCrawler(
+            config,
+            session=session,
+            delay_seconds=0,
+            browser_fallback_on_403=True,
+        )
+        crawler._fallback_session = fallback_session
+
+        html = crawler.fetch_text("https://www.hks.harvard.edu/faculty-profiles")
+
+        self.assertEqual(html, "<html>fallback ok</html>")
+
+    @unittest.skipIf(HarvardFacultyCrawler is None, "beautifulsoup4/requests are not installed")
+    def test_scrape_profiles_can_write_failed_placeholder_record(self) -> None:
+        config = SchoolConfig(
+            key="gse",
+            name="Harvard Graduate School of Education",
+            seed_urls=[],
+            allowed_domains=["www.gse.harvard.edu"],
+        )
+        session = FakeSession(
+            {
+                "https://www.gse.harvard.edu/directory/staff/shoshana-zuckerman": FakeResponse(status_code=500),
+            }
+        )
+        crawler = HarvardFacultyCrawler(
+            config,
+            session=session,
+            delay_seconds=0,
+            request_retries=0,
+        )
+
+        records = crawler.scrape_profiles(
+            ["https://www.gse.harvard.edu/directory/staff/shoshana-zuckerman"],
+            source_directory_url="https://www.gse.harvard.edu/directory/staff",
+            continue_on_error=True,
+            write_failed_records=True,
+        )
+
+        self.assertEqual(len(records), 1)
+        self.assertTrue(records[0].extra["fetch_failed"])
+        self.assertIn("profile_fetch_failed", records[0].extraction_notes[0])
+
 
 if __name__ == "__main__":
     unittest.main()

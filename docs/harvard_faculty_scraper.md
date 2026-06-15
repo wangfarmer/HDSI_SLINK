@@ -186,6 +186,21 @@ Do not overwrite a high-confidence ORCID field with lower-confidence scraped tex
 - Keep `--delay-seconds` at 1 or higher unless you have explicit permission.
 - Do not commit files under `data/raw` or `data/processed`; the repository ignores them by default.
 
+## Robust mode for noisy runs
+
+Use this mode when you see intermittent `403`, `429`, or `500` errors:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_education_school --max-pages 100 --max-profiles 10000 --delay-seconds 3 --request-retries 5 --request-backoff-seconds 20 --image-delay-seconds 5 --image-retries 5 --image-backoff-seconds 20 --browser-fallback-on-403 --continue-on-error --write-failed-profile-records --output-layout person-folders --output data\raw\harvard_education_school_people
+```
+
+This does four things:
+
+- retries transient `429` and `500` page/API requests;
+- retries `403` once with the browser HTTP client;
+- continues the run when one profile or image still fails;
+- writes `_failures.jsonl` in the output folder and placeholder `profile.jsonl` records for failed profile pages.
+
 ## Windows Anaconda Prompt examples
 
 Run all built-in schools and keep going if one school returns an HTTP error:

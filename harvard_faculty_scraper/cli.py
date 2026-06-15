@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import DEFAULT_SCHOOL_CONFIGS, get_school_config, load_school_config
@@ -83,6 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="HTTP backend. Use browser for sites that block normal Python requests.",
     )
     scrape_parser.add_argument(
+        "--browser-fallback-on-403",
+        action="store_true",
+        help="When using requests, retry HTTP 403 URLs once with the browser HTTP client.",
+    )
+    scrape_parser.add_argument(
         "--discover-only",
         action="store_true",
         help="Only print discovered profile URLs; do not fetch profile pages.",
@@ -96,6 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--continue-on-error",
         action="store_true",
         help="Log HTTP errors and continue. Useful for all-school batch runs.",
+    )
+    scrape_parser.add_argument(
+        "--write-failed-profile-records",
+        action="store_true",
+        help="For failed profile-page fetches, write placeholder profile.jsonl records with error metadata.",
     )
     scrape_parser.add_argument(
         "--skip-images",
@@ -127,6 +139,8 @@ def scrape(args: argparse.Namespace) -> int:
     config = load_config_from_args(args)
     if args.seed_url:
         config = with_seed_urls(config, args.seed_url)
+    failures: list[dict[str, str]] = []
+    error_handler = make_error_handler(failures)
 
     crawler_kwargs = {
         "timeout_seconds": args.timeout_seconds,
@@ -134,6 +148,7 @@ def scrape(args: argparse.Namespace) -> int:
         "http_client": args.http_client,
         "request_retries": args.request_retries,
         "request_backoff_seconds": args.request_backoff_seconds,
+        "browser_fallback_on_403": args.browser_fallback_on_403,
     }
     if args.user_agent:
         crawler_kwargs["user_agent"] = args.user_agent
@@ -142,7 +157,7 @@ def scrape(args: argparse.Namespace) -> int:
     profile_urls = crawler.discover_profile_urls(
         max_pages=args.max_pages,
         continue_on_error=args.continue_on_error,
-        on_error=print_fetch_error,
+        on_error=error_handler,
     )
 
     if args.discover_only:
@@ -155,7 +170,8 @@ def scrape(args: argparse.Namespace) -> int:
         source_directory_url=", ".join(config.seed_urls),
         max_profiles=args.max_profiles,
         continue_on_error=args.continue_on_error,
-        on_error=print_fetch_error,
+        on_error=error_handler,
+        write_failed_records=args.write_failed_profile_records,
     )
 
     if args.output_layout == "person-folders":
@@ -167,23 +183,48 @@ def scrape(args: argparse.Namespace) -> int:
             session=crawler.session,
             download_images=not args.skip_images,
             continue_on_error=args.continue_on_error,
-            on_error=print_fetch_error,
+            on_error=error_handler,
             timeout_seconds=args.timeout_seconds,
             image_delay_seconds=args.image_delay_seconds if args.image_delay_seconds is not None else args.delay_seconds,
             image_retries=args.image_retries,
             image_backoff_seconds=args.image_backoff_seconds,
         )
+        write_failures_if_needed(failures, args.output / "_failures.jsonl")
     elif args.output:
         if args.format == "csv":
             write_csv(records, args.output)
         else:
             write_jsonl(records, args.output)
+        write_failures_if_needed(failures, args.output.with_name(f"{args.output.stem}_failures.jsonl"))
     elif args.format == "csv":
         raise SystemExit("CSV output requires --output.")
     else:
         print_jsonl(records, sys.stdout)
 
     return 0
+
+
+def make_error_handler(failures: list[dict[str, str]]):
+    def handle(url: str, exc: Exception) -> None:
+        failures.append(
+            {
+                "url": url,
+                "error": str(exc),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        print_fetch_error(url, exc)
+
+    return handle
+
+
+def write_failures_if_needed(failures: list[dict[str, str]], output_path: Path) -> None:
+    if not failures:
+        return
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
+        for failure in failures:
+            handle.write(json.dumps(failure, ensure_ascii=False) + "\n")
 
 
 def print_fetch_error(url: str, exc: Exception) -> None:

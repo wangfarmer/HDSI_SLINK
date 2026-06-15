@@ -45,6 +45,7 @@ class HarvardFacultyCrawler:
         http_client: str = "requests",
         request_retries: int = 3,
         request_backoff_seconds: float = 10.0,
+        browser_fallback_on_403: bool = False,
         session: requests.Session | None = None,
     ) -> None:
         self.config = config
@@ -52,6 +53,9 @@ class HarvardFacultyCrawler:
         self.delay_seconds = delay_seconds
         self.request_retries = request_retries
         self.request_backoff_seconds = request_backoff_seconds
+        self.http_client = http_client
+        self.browser_fallback_on_403 = browser_fallback_on_403
+        self._fallback_session = None
         self.session = session or _make_session(http_client)
         self.session.headers.update(DEFAULT_HEADERS | {"User-Agent": user_agent})
 
@@ -153,6 +157,7 @@ class HarvardFacultyCrawler:
         max_profiles: int | None = None,
         continue_on_error: bool = False,
         on_error: Callable[[str, Exception], None] | None = None,
+        write_failed_records: bool = False,
     ) -> list[FacultyRecord]:
         records: list[FacultyRecord] = []
         for index, profile_url in enumerate(profile_urls):
@@ -164,6 +169,8 @@ class HarvardFacultyCrawler:
                 if on_error:
                     on_error(profile_url, exc)
                 if continue_on_error:
+                    if write_failed_records:
+                        records.append(_failed_profile_record(self.config.name, source_directory_url, profile_url, exc))
                     continue
                 raise
             records.append(
@@ -187,6 +194,12 @@ class HarvardFacultyCrawler:
         for attempt in range(attempts):
             response = self.session.get(url, timeout=self.timeout_seconds)
             status_code = getattr(response, "status_code", None)
+            if status_code == 403 and self.browser_fallback_on_403 and self.http_client != "browser":
+                fallback_response = self._get_fallback_session().get(url, timeout=self.timeout_seconds)
+                fallback_status_code = getattr(fallback_response, "status_code", None)
+                if fallback_status_code != 403:
+                    response = fallback_response
+                    status_code = fallback_status_code
             if status_code not in {429, 500, 502, 503, 504}:
                 response.raise_for_status()
                 return response
@@ -197,6 +210,12 @@ class HarvardFacultyCrawler:
         if response is None:
             raise ValueError("No response received")
         return response
+
+    def _get_fallback_session(self):
+        if self._fallback_session is None:
+            self._fallback_session = _make_session("browser")
+            self._fallback_session.headers.update(self.session.headers)
+        return self._fallback_session
 
     def sleep(self) -> None:
         if self.delay_seconds > 0:
@@ -213,6 +232,16 @@ class HarvardFacultyCrawler:
 
 def with_seed_urls(config: SchoolConfig, seed_urls: list[str]) -> SchoolConfig:
     return replace(config, seed_urls=seed_urls)
+
+
+def _failed_profile_record(source_school: str, source_directory_url: str, profile_url: str, exc: Exception) -> FacultyRecord:
+    return FacultyRecord(
+        source_school=source_school,
+        source_directory_url=source_directory_url,
+        profile_url=profile_url,
+        extraction_notes=[f"profile_fetch_failed: {exc}"],
+        extra={"fetch_failed": True, "error": str(exc)},
+    )
 
 
 def write_jsonl(records: Iterable[FacultyRecord], output_path: Path) -> None:
