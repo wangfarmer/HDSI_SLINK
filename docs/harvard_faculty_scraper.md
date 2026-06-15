@@ -215,6 +215,16 @@ To confirm HSPH discovery before scraping profiles:
 python -m harvard_faculty_scraper.cli scrape --school harvard_t_h_chan_school_public_health --discover-only --max-pages 100 --continue-on-error > data\raw\hsph_urls.txt
 ```
 
+## Kennedy School fallback
+
+Some local networks block the HKS directory page even when the individual public profile pages are reachable. If `harvard_kennedy_school` discovery keeps returning `403`, use the checked-in public URL seed file:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --profile-urls-file seeds\harvard_kennedy_school_profile_urls.txt --max-profiles 10000 --delay-seconds 3 --request-retries 5 --request-backoff-seconds 20 --browser-fallback-on-403 --skip-images --continue-on-error --write-failed-profile-records --progress-every 25 --output-layout person-folders --output data\raw\harvard_kennedy_school_people
+```
+
+This skips the blocked HKS listing page and scrapes the known public profile URLs directly.
+
 ## Windows Anaconda Prompt examples
 
 Run all built-in schools and keep going if one school returns an HTTP error:

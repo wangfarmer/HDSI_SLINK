@@ -54,6 +54,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Override/add directory seed URL. Can be passed multiple times.",
     )
+    scrape_parser.add_argument(
+        "--profile-urls-file",
+        type=Path,
+        help="Read profile URLs from a text file instead of discovering them from directory pages.",
+    )
     scrape_parser.add_argument("--output", type=Path, help="Output file or person-folder root. Defaults to stdout for JSONL.")
     scrape_parser.add_argument(
         "--output-layout",
@@ -160,11 +165,14 @@ def scrape(args: argparse.Namespace) -> int:
         crawler_kwargs["user_agent"] = args.user_agent
 
     crawler = HarvardFacultyCrawler(config, **crawler_kwargs)
-    profile_urls = crawler.discover_profile_urls(
-        max_pages=args.max_pages,
-        continue_on_error=args.continue_on_error,
-        on_error=error_handler,
-    )
+    if args.profile_urls_file:
+        profile_urls = read_profile_urls_file(args.profile_urls_file)
+    else:
+        profile_urls = crawler.discover_profile_urls(
+            max_pages=args.max_pages,
+            continue_on_error=args.continue_on_error,
+            on_error=error_handler,
+        )
 
     if args.discover_only:
         for url in profile_urls:
@@ -234,6 +242,15 @@ def make_error_handler(failures: list[dict[str, str]]):
         print_fetch_error(url, exc)
 
     return handle
+
+
+def read_profile_urls_file(path: Path) -> list[str]:
+    with path.open("r", encoding="utf-8") as handle:
+        return [
+            line.strip()
+            for line in handle
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
 
 
 def write_failures_if_needed(failures: list[dict[str, str]], output_path: Path) -> None:
