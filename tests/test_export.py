@@ -2,16 +2,29 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from harvard_faculty_scraper.export import sanitize_folder_name, write_person_folders
+import requests
+
+from harvard_faculty_scraper.export import download_profile_image, sanitize_folder_name, write_person_folders
 from harvard_faculty_scraper.models import FacultyRecord
 
 
 class FakeImageResponse:
-    headers = {"Content-Type": "image/jpeg"}
-    content = b"fake-jpeg-bytes"
+    def __init__(
+        self,
+        *,
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+        content: bytes = b"fake-jpeg-bytes",
+    ) -> None:
+        self.status_code = status_code
+        self.headers = headers or {"Content-Type": "image/jpeg"}
+        self.content = content
 
     def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} Client Error")
         return None
 
 
@@ -22,6 +35,16 @@ class FakeImageSession:
     def get(self, url: str, timeout: float) -> FakeImageResponse:
         self.requested_urls.append(url)
         return FakeImageResponse()
+
+
+class FakeSequenceImageSession:
+    def __init__(self, responses: list[FakeImageResponse]) -> None:
+        self.responses = responses
+        self.requested_urls: list[str] = []
+
+    def get(self, url: str, timeout: float) -> FakeImageResponse:
+        self.requested_urls.append(url)
+        return self.responses.pop(0)
 
 
 class PersonFolderExportTest(unittest.TestCase):
@@ -58,6 +81,28 @@ class PersonFolderExportTest(unittest.TestCase):
             self.assertEqual(payload["full_name"], "Jane Q. Scholar")
             self.assertEqual(payload["role_category"], "postdoc")
             self.assertTrue(payload["local_image_path"].endswith("profile_picture.jpg"))
+
+    def test_download_profile_image_retries_rate_limit(self) -> None:
+        session = FakeSequenceImageSession(
+            [
+                FakeImageResponse(status_code=429, headers={"Retry-After": "0"}),
+                FakeImageResponse(status_code=200, headers={"Content-Type": "image/png"}, content=b"png"),
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir, patch("harvard_faculty_scraper.export.time.sleep") as sleep:
+            image_path = download_profile_image(
+                "https://example.harvard.edu/images/jane.png",
+                Path(tmp_dir),
+                session=session,
+                retries=1,
+                backoff_seconds=0,
+            )
+
+            self.assertEqual(image_path.name, "profile_picture.png")
+            self.assertEqual(image_path.read_bytes(), b"png")
+            self.assertEqual(len(session.requested_urls), 2)
+            sleep.assert_called_once_with(0.0)
 
 
 if __name__ == "__main__":

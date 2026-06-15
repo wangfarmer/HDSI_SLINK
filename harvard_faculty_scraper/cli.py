@@ -90,6 +90,24 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="For person-folders output, write profile JSONL but do not download profile pictures.",
     )
+    scrape_parser.add_argument(
+        "--image-delay-seconds",
+        type=float,
+        default=None,
+        help="Delay between profile-picture downloads. Defaults to --delay-seconds.",
+    )
+    scrape_parser.add_argument(
+        "--image-retries",
+        type=int,
+        default=3,
+        help="Number of retries for rate-limited or transient image downloads.",
+    )
+    scrape_parser.add_argument(
+        "--image-backoff-seconds",
+        type=float,
+        default=5.0,
+        help="Base backoff between image retry attempts.",
+    )
     return parser
 
 
@@ -137,6 +155,9 @@ def scrape(args: argparse.Namespace) -> int:
             continue_on_error=args.continue_on_error,
             on_error=print_fetch_error,
             timeout_seconds=args.timeout_seconds,
+            image_delay_seconds=args.image_delay_seconds if args.image_delay_seconds is not None else args.delay_seconds,
+            image_retries=args.image_retries,
+            image_backoff_seconds=args.image_backoff_seconds,
         )
     elif args.output:
         if args.format == "csv":
@@ -159,6 +180,13 @@ def print_fetch_error(url: str, exc: Exception) -> None:
             "requests, require browser verification, or reject the current User-Agent. "
             "Try a smaller run, a school-specific seed URL, or --user-agent with a "
             "current browser User-Agent.",
+            file=sys.stderr,
+        )
+    if "429" in str(exc):
+        print(
+            "[fetch-error] Received HTTP 429 Too Many Requests. Slow image downloads "
+            "with --image-delay-seconds, increase --image-backoff-seconds, or use "
+            "--skip-images and rerun images later.",
             file=sys.stderr,
         )
 

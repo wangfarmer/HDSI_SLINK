@@ -252,3 +252,17 @@ If you see `403 Client Error: Forbidden`:
    ```
 
 5. If the site still blocks access, use a school-specific public directory page with `--seed-url`, or collect that school manually.
+
+## HTTP 429 Too Many Requests for profile pictures
+
+Some image hosts rate-limit profile-picture downloads. If you see `429 Client Error: Too Many Requests`, slow down image downloads:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_graduate_school_of_design --max-pages 100 --max-profiles 10000 --delay-seconds 1 --image-delay-seconds 5 --image-retries 5 --image-backoff-seconds 15 --continue-on-error --output-layout person-folders --output data\raw\harvard_gsd_people
+```
+
+If you only need the JSON profiles first, skip images and download them in a later rerun:
+
+```bat
+python -m harvard_faculty_scraper.cli scrape --school harvard_graduate_school_of_design --max-pages 100 --max-profiles 10000 --delay-seconds 1 --skip-images --continue-on-error --output-layout person-folders --output data\raw\harvard_gsd_people
+```

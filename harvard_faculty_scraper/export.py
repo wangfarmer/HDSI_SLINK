@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import re
+import time
 from collections.abc import Callable, Iterable
 from hashlib import sha1
 from pathlib import Path
@@ -26,6 +27,9 @@ def write_person_folders(
     continue_on_error: bool = False,
     on_error: Callable[[str, Exception], None] | None = None,
     timeout_seconds: float = 20.0,
+    image_delay_seconds: float = 0.0,
+    image_retries: int = 3,
+    image_backoff_seconds: float = 5.0,
 ) -> None:
     """Write one folder per person with profile JSONL and optional profile picture."""
 
@@ -38,6 +42,8 @@ def write_person_folders(
         folder.mkdir(parents=True, exist_ok=True)
 
         if download_images and record.image_url:
+            if image_delay_seconds > 0:
+                time.sleep(image_delay_seconds)
             try:
                 record.local_image_path = str(
                     download_profile_image(
@@ -45,9 +51,11 @@ def write_person_folders(
                         folder,
                         session=http,
                         timeout_seconds=timeout_seconds,
+                        retries=image_retries,
+                        backoff_seconds=image_backoff_seconds,
                     )
                 )
-            except (requests.RequestException, ValueError, OSError) as exc:
+            except (Exception, ValueError, OSError) as exc:
                 record.extraction_notes.append(f"image_download_failed: {exc}")
                 if on_error:
                     on_error(record.image_url, exc)
@@ -64,15 +72,39 @@ def download_profile_image(
     *,
     session: requests.Session,
     timeout_seconds: float = 20.0,
+    retries: int = 3,
+    backoff_seconds: float = 5.0,
 ) -> Path:
-    response = session.get(image_url, timeout=timeout_seconds)
-    response.raise_for_status()
+    response = None
+    attempts = max(1, retries + 1)
+    for attempt in range(attempts):
+        response = session.get(image_url, timeout=timeout_seconds)
+        status_code = getattr(response, "status_code", None)
+        if status_code not in {429, 500, 502, 503, 504}:
+            response.raise_for_status()
+            break
+        if attempt == attempts - 1:
+            response.raise_for_status()
+        time.sleep(_retry_sleep_seconds(response, attempt, backoff_seconds))
+
+    if response is None:
+        raise ValueError("No image response received")
 
     content_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
     extension = _image_extension(image_url, content_type)
     image_path = folder / f"profile_picture{extension}"
     image_path.write_bytes(response.content)
     return image_path
+
+
+def _retry_sleep_seconds(response: object, attempt: int, backoff_seconds: float) -> float:
+    retry_after = getattr(response, "headers", {}).get("Retry-After")
+    if retry_after:
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+    return max(0.0, backoff_seconds * (attempt + 1))
 
 
 def _person_folder(output_dir: Path, record: FacultyRecord, used_folder_names: set[str]) -> Path:
