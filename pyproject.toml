@@ -9,6 +9,7 @@ description = "Research utilities for HUMA.I.N S-Link data collection and groupi
 requires-python = ">=3.10"
 dependencies = [
   "beautifulsoup4",
+  "curl_cffi",
   "requests",
 ]
 

@@ -65,6 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
     scrape_parser.add_argument("--delay-seconds", type=float, default=1.0, help="Delay between HTTP requests.")
     scrape_parser.add_argument("--timeout-seconds", type=float, default=20.0, help="HTTP timeout.")
     scrape_parser.add_argument(
+        "--http-client",
+        choices=["requests", "browser"],
+        default="requests",
+        help="HTTP backend. Use browser for sites that block normal Python requests.",
+    )
+    scrape_parser.add_argument(
         "--discover-only",
         action="store_true",
         help="Only print discovered profile URLs; do not fetch profile pages.",
@@ -95,6 +101,7 @@ def scrape(args: argparse.Namespace) -> int:
     crawler_kwargs = {
         "timeout_seconds": args.timeout_seconds,
         "delay_seconds": args.delay_seconds,
+        "http_client": args.http_client,
     }
     if args.user_agent:
         crawler_kwargs["user_agent"] = args.user_agent

@@ -231,12 +231,24 @@ If you see `403 Client Error: Forbidden`:
    python -m harvard_faculty_scraper.cli scrape --school harvard_divinity_school --discover-only --max-pages 1 --delay-seconds 2
    ```
 
-2. For batch runs, add `--continue-on-error` so one school does not stop the whole run.
+2. Try browser-impersonation mode:
 
-3. If your browser can open the page but Python cannot, pass your own current browser User-Agent:
+   ```bat
+   python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --discover-only --max-pages 20 --http-client browser --continue-on-error
+   ```
+
+   For full HKS folder output:
+
+   ```bat
+   python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --max-pages 100 --max-profiles 10000 --delay-seconds 1 --http-client browser --continue-on-error --output-layout person-folders --output data\raw\harvard_kennedy_school_people
+   ```
+
+3. For batch runs, add `--continue-on-error` so one school does not stop the whole run.
+
+4. If your browser can open the page but Python cannot, pass your own current browser User-Agent:
 
    ```bat
    python -m harvard_faculty_scraper.cli scrape --school harvard_divinity_school --discover-only --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
    ```
 
-4. If the site still blocks access, use a school-specific public directory page with `--seed-url`, or collect that school manually.
+5. If the site still blocks access, use a school-specific public directory page with `--seed-url`, or collect that school manually.

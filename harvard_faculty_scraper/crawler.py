@@ -15,6 +15,11 @@ from .extract import extract_faculty_record
 from .models import FacultyRecord, SchoolConfig
 from .utils import absolute_url, dedupe_preserve_order, domain_allowed, matches_any
 
+try:
+    from curl_cffi import requests as curl_requests
+except ImportError:  # pragma: no cover - exercised only when optional dependency is missing.
+    curl_requests = None
+
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
 
@@ -37,12 +42,13 @@ class HarvardFacultyCrawler:
         timeout_seconds: float = 20.0,
         delay_seconds: float = 1.0,
         user_agent: str = DEFAULT_USER_AGENT,
+        http_client: str = "requests",
         session: requests.Session | None = None,
     ) -> None:
         self.config = config
         self.timeout_seconds = timeout_seconds
         self.delay_seconds = delay_seconds
-        self.session = session or requests.Session()
+        self.session = session or _make_session(http_client)
         self.session.headers.update(DEFAULT_HEADERS | {"User-Agent": user_agent})
 
     def discover_profile_urls(
@@ -69,7 +75,7 @@ class HarvardFacultyCrawler:
             visited.add(url)
             try:
                 html = self.fetch_text(url)
-            except requests.RequestException as exc:
+            except Exception as exc:
                 if on_error:
                     on_error(url, exc)
                 if continue_on_error:
@@ -111,7 +117,7 @@ class HarvardFacultyCrawler:
                     response = self.session.get(next_url, timeout=self.timeout_seconds)
                     response.raise_for_status()
                     payload = response.json()
-                except (requests.RequestException, ValueError) as exc:
+                except (Exception, ValueError) as exc:
                     if on_error:
                         on_error(next_url, exc)
                     if continue_on_error:
@@ -151,7 +157,7 @@ class HarvardFacultyCrawler:
                 break
             try:
                 html = self.fetch_text(profile_url)
-            except requests.RequestException as exc:
+            except Exception as exc:
                 if on_error:
                     on_error(profile_url, exc)
                 if continue_on_error:
@@ -242,6 +248,16 @@ def _normalize_url(url: str | None) -> str | None:
         return None
     url, _fragment = urldefrag(url)
     return url.rstrip("/")
+
+
+def _make_session(http_client: str):
+    if http_client == "requests":
+        return requests.Session()
+    if http_client == "browser":
+        if curl_requests is None:
+            raise RuntimeError("curl_cffi is required for --http-client browser. Run: python -m pip install -e .")
+        return curl_requests.Session(impersonate="chrome")
+    raise ValueError(f"Unknown HTTP client: {http_client}")
 
 
 def _html_candidate_urls(soup: BeautifulSoup) -> list[str]:
