@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path
 from typing import Callable, TextIO
-from urllib.parse import urldefrag
+from urllib.parse import parse_qs, urlencode, urldefrag, urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -56,7 +56,11 @@ class HarvardFacultyCrawler:
 
         queue = list(self.config.seed_urls)
         visited: set[str] = set()
-        profile_urls: list[str] = []
+        profile_urls: list[str] = self.discover_api_profile_urls(
+            max_pages=max_pages,
+            continue_on_error=continue_on_error,
+            on_error=on_error,
+        )
 
         while queue and len(visited) < max_pages:
             url = queue.pop(0)
@@ -73,9 +77,8 @@ class HarvardFacultyCrawler:
                 raise
             soup = BeautifulSoup(html, "html.parser")
 
-            for link in soup.select("a[href]"):
-                href = str(link.get("href"))
-                absolute = _normalize_url(absolute_url(url, href))
+            for candidate_url in _html_candidate_urls(soup):
+                absolute = _normalize_url(absolute_url(url, candidate_url))
                 if not absolute or not domain_allowed(absolute, self.config.allowed_domains):
                     continue
                 if matches_any(absolute, self.config.exclude_link_patterns):
@@ -88,6 +91,50 @@ class HarvardFacultyCrawler:
             self.sleep()
 
         return dedupe_preserve_order(profile_urls)
+
+    def discover_api_profile_urls(
+        self,
+        *,
+        max_pages: int = 20,
+        continue_on_error: bool = False,
+        on_error: Callable[[str, Exception], None] | None = None,
+    ) -> list[str]:
+        """Discover profile URLs from JSON APIs such as WordPress REST endpoints."""
+
+        profile_urls: list[str] = []
+        pages_seen = 0
+        for seed_url in self.config.api_seed_urls:
+            next_url: str | None = seed_url
+            while next_url and pages_seen < max_pages:
+                pages_seen += 1
+                try:
+                    response = self.session.get(next_url, timeout=self.timeout_seconds)
+                    response.raise_for_status()
+                    payload = response.json()
+                except (requests.RequestException, ValueError) as exc:
+                    if on_error:
+                        on_error(next_url, exc)
+                    if continue_on_error:
+                        break
+                    raise
+
+                for profile_url in _profile_urls_from_api_payload(payload):
+                    normalized = _normalize_url(profile_url)
+                    if not normalized or not domain_allowed(normalized, self.config.allowed_domains):
+                        continue
+                    if matches_any(normalized, self.config.exclude_link_patterns):
+                        continue
+                    if self._is_profile_url(normalized):
+                        profile_urls.append(normalized)
+                total_pages = _safe_int(response.headers.get("X-WP-TotalPages"))
+                current_page = _query_page(next_url)
+                if total_pages and current_page and current_page < total_pages:
+                    next_url = _with_query_page(next_url, current_page + 1)
+                    self.sleep()
+                else:
+                    next_url = None
+
+        return profile_urls
 
     def scrape_profiles(
         self,
@@ -195,3 +242,50 @@ def _normalize_url(url: str | None) -> str | None:
         return None
     url, _fragment = urldefrag(url)
     return url.rstrip("/")
+
+
+def _html_candidate_urls(soup: BeautifulSoup) -> list[str]:
+    values: list[str] = []
+    for element in soup.select("a[href], [about]"):
+        href = element.get("href")
+        about = element.get("about")
+        if href:
+            values.append(str(href))
+        if about:
+            values.append(str(about))
+    return values
+
+
+def _profile_urls_from_api_payload(payload: object) -> list[str]:
+    if not isinstance(payload, list):
+        return []
+    urls: list[str] = []
+    for item in payload:
+        if isinstance(item, dict) and isinstance(item.get("link"), str):
+            urls.append(item["link"])
+    return urls
+
+
+def _query_page(url: str) -> int | None:
+    query = parse_qs(urlparse(url).query)
+    values = query.get("page")
+    if not values:
+        return None
+    return _safe_int(values[0])
+
+
+def _with_query_page(url: str, page: int) -> str:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    query["page"] = [str(page)]
+    encoded_query = urlencode(query, doseq=True)
+    return urlunparse(parsed._replace(query=encoded_query))
+
+
+def _safe_int(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None

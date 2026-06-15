@@ -74,13 +74,15 @@ def extract_faculty_record(
                 ".field--name-field-job-title",
                 ".profile-title",
                 ".person-title",
-                ".views-field-title",
-                "[class*=title]",
+                "[class*=appointment]",
                 "[class*=position]",
+                "[class*=job-title]",
+                "[class*=role]",
             ],
             predicate=_looks_like_title,
         ),
         _title_from_near_header(soup),
+        _select_text(soup, [".views-field-title", "[class*=title]"], predicate=_looks_like_title),
     )
 
     affiliation = _first_nonempty(
@@ -100,7 +102,7 @@ def extract_faculty_record(
 
     email = _first_nonempty(_json_value(json_ld, "email"), _email_from_mailto(soup), first_email(soup.get_text(" ")))
     if email:
-        email = email.removeprefix("mailto:").strip()
+        email = _normalize_email(email)
 
     image_url = _first_nonempty(
         _json_value(json_ld, "image"),
@@ -347,7 +349,16 @@ def _title_from_near_header(soup: BeautifulSoup) -> str | None:
 
 def _looks_like_title(text: str) -> bool:
     lowered = text.lower()
-    return any(hint in lowered for hint in TITLE_HINTS) and len(text) <= 220
+    return any(re.search(rf"\b{re.escape(hint)}\b", lowered) for hint in TITLE_HINTS) and len(text) <= 220
+
+
+def _normalize_email(value: str) -> str:
+    email = value.removeprefix("mailto:").split("?", 1)[0].strip()
+    if "@" not in email and "DOT" in email.upper() and "AT" in email.upper():
+        email = email.replace(" AT ", "AT").replace(" DOT ", "DOT")
+        email = re.sub("AT", "@", email, count=1, flags=re.IGNORECASE)
+        email = re.sub("DOT", ".", email, flags=re.IGNORECASE)
+    return email
 
 
 def _infer_role_category(title: str | None) -> str | None:

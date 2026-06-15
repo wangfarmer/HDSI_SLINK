@@ -10,11 +10,18 @@ else:
 
 
 class FakeResponse:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str = "", json_payload=None, headers: dict[str, str] | None = None) -> None:
         self.text = text
+        self._json_payload = json_payload
+        self.headers = headers or {}
 
     def raise_for_status(self) -> None:
         return None
+
+    def json(self):
+        if self._json_payload is None:
+            raise ValueError("No JSON payload")
+        return self._json_payload
 
 
 class FakeSession:
@@ -23,7 +30,10 @@ class FakeSession:
         self.headers: dict[str, str] = {}
 
     def get(self, url: str, timeout: float) -> FakeResponse:
-        return FakeResponse(self.pages[url])
+        value = self.pages[url]
+        if isinstance(value, FakeResponse):
+            return value
+        return FakeResponse(text=value)
 
 
 class HarvardFacultyCrawlerTest(unittest.TestCase):
@@ -92,6 +102,71 @@ class HarvardFacultyCrawlerTest(unittest.TestCase):
             [
                 "https://hls.harvard.edu/faculty/william-p-alford",
                 "https://hls.harvard.edu/faculty/sabrineh-ardalan",
+            ],
+        )
+
+    @unittest.skipIf(HarvardFacultyCrawler is None, "beautifulsoup4/requests are not installed")
+    def test_discovers_profile_urls_from_about_attributes(self) -> None:
+        config = SchoolConfig(
+            key="hks",
+            name="Harvard Kennedy School",
+            seed_urls=["https://www.hks.harvard.edu/faculty-profiles"],
+            allowed_domains=["www.hks.harvard.edu"],
+            profile_link_patterns=[r"/faculty/"],
+            exclude_link_patterns=[r"/faculty-profiles"],
+            profile_required_patterns=[r"/faculty/[A-Za-z0-9][A-Za-z0-9-]*/?$"],
+        )
+        session = FakeSession(
+            {
+                "https://www.hks.harvard.edu/faculty-profiles": """
+                <article about="/faculty/khalil-abdur-rashid">Khalil Abdur-Rashid</article>
+                """
+            }
+        )
+        crawler = HarvardFacultyCrawler(config, session=session, delay_seconds=0)
+
+        urls = crawler.discover_profile_urls(max_pages=1)
+
+        self.assertEqual(urls, ["https://www.hks.harvard.edu/faculty/khalil-abdur-rashid"])
+
+    @unittest.skipIf(HarvardFacultyCrawler is None, "beautifulsoup4/requests are not installed")
+    def test_discovers_profile_urls_from_paginated_api(self) -> None:
+        config = SchoolConfig(
+            key="hsph",
+            name="Harvard Chan School",
+            seed_urls=[],
+            api_seed_urls=["https://hsph.harvard.edu/wp-json/wp/v2/faculty_profiles?per_page=2&page=1"],
+            allowed_domains=["hsph.harvard.edu"],
+            profile_link_patterns=[r"/profile/"],
+            profile_required_patterns=[r"/profile/[^/]+/?$"],
+        )
+        session = FakeSession(
+            {
+                "https://hsph.harvard.edu/wp-json/wp/v2/faculty_profiles?per_page=2&page=1": FakeResponse(
+                    json_payload=[
+                        {"link": "https://hsph.harvard.edu/profile/rifat-atun/"},
+                        {"link": "https://hsph.harvard.edu/profile/andrea-baccarelli/"},
+                    ],
+                    headers={"X-WP-TotalPages": "2"},
+                ),
+                "https://hsph.harvard.edu/wp-json/wp/v2/faculty_profiles?per_page=2&page=2": FakeResponse(
+                    json_payload=[
+                        {"link": "https://hsph.harvard.edu/profile/jorge-e-chavarro/"},
+                    ],
+                    headers={"X-WP-TotalPages": "2"},
+                ),
+            }
+        )
+        crawler = HarvardFacultyCrawler(config, session=session, delay_seconds=0)
+
+        urls = crawler.discover_profile_urls(max_pages=5)
+
+        self.assertEqual(
+            urls,
+            [
+                "https://hsph.harvard.edu/profile/rifat-atun",
+                "https://hsph.harvard.edu/profile/andrea-baccarelli",
+                "https://hsph.harvard.edu/profile/jorge-e-chavarro",
             ],
         )
 

@@ -16,6 +16,7 @@ class SchoolConfig:
     exclude_link_patterns: list[str] = field(default_factory=list)
     profile_required_patterns: list[str] = field(default_factory=list)
     list_page_patterns: list[str] = field(default_factory=list)
+    api_seed_urls: list[str] = field(default_factory=list)
 
 
 @dataclass

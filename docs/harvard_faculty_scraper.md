@@ -210,14 +210,14 @@ Smoke-tested status as of the current scraper version:
 
 | School key | Status | Notes |
 | --- | --- | --- |
+| `harvard_kennedy_school` | Works | Discovery finds 229 public faculty profile URLs from the current `/faculty-profiles` directory. |
+| `harvard_business_school` | Works | Discovery finds 361 public faculty profile URLs from `pubwww.hbs.edu`. |
 | `harvard_law_school` | Works | Discovery finds 387 public faculty profile URLs from the explicit `?page=1` paginated directory. |
 | `harvard_graduate_school_of_design` | Works | Discovery finds about 128 public faculty/staff/affiliate `/person/...` profile URLs. |
+| `harvard_medical_school` | Partial | Discovery finds 113 public profiles from the DBMI people directory; HMS does not expose a single master public people directory in this config. |
+| `harvard_t_h_chan_school_public_health` | Works | Discovery finds 1548 public faculty/researcher profile URLs through the school's WordPress profiles API. |
 | `harvard_education_school` | Works | Discovery finds about 679 public faculty/staff/PhD student/EdLD student directory profile URLs. |
-| `harvard_kennedy_school` | Blocked | Public directory currently returns HTTP 403 to scripted requests. |
 | `harvard_divinity_school` | Blocked | Public people page currently returns HTTP 403 to scripted requests. |
-| `harvard_business_school` | Needs tuning | Seed page returns no static profile links in the current HTML response. |
-| `harvard_medical_school` | Needs tuning | Current seed/config does not discover profile links yet. |
-| `harvard_t_h_chan_school_public_health` | Needs tuning | Current seed/config does not discover profile links yet. |
 
 ## HTTP 403 Forbidden
 
@@ -228,7 +228,7 @@ If you see `403 Client Error: Forbidden`:
 1. Try a smaller discovery run first:
 
    ```bat
-   python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --discover-only --max-pages 1 --delay-seconds 2
+   python -m harvard_faculty_scraper.cli scrape --school harvard_divinity_school --discover-only --max-pages 1 --delay-seconds 2
    ```
 
 2. For batch runs, add `--continue-on-error` so one school does not stop the whole run.
@@ -236,7 +236,7 @@ If you see `403 Client Error: Forbidden`:
 3. If your browser can open the page but Python cannot, pass your own current browser User-Agent:
 
    ```bat
-   python -m harvard_faculty_scraper.cli scrape --school harvard_kennedy_school --discover-only --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
+   python -m harvard_faculty_scraper.cli scrape --school harvard_divinity_school --discover-only --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
    ```
 
 4. If the site still blocks access, use a school-specific public directory page with `--seed-url`, or collect that school manually.

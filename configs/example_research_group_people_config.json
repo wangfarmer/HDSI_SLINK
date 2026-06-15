@@ -5,6 +5,9 @@
     "https://example.harvard.edu/people",
     "https://example.harvard.edu/team"
   ],
+  "api_seed_urls": [
+    "https://example.harvard.edu/wp-json/wp/v2/people?per_page=100&page=1"
+  ],
   "allowed_domains": [
     "example.harvard.edu"
   ],
