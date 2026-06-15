@@ -249,14 +249,27 @@ Smoke-tested status as of the current scraper version:
 
 | School key | Status | Notes |
 | --- | --- | --- |
+| `harvard_college_dso_staff` | Partial | Discovery finds 215 public Dean of Students Office staff profile URLs. Harvard College does not expose a single all-faculty public profile directory. |
+| `harvard_gsas_staff` | Partial | Discovery finds 72 public Harvard Griffin GSAS staff profile URLs. GSAS faculty are generally listed through FAS/department directories rather than a single GSAS faculty directory. |
+| `harvard_seas` | Works | Discovery finds 173 public SEAS `/person/...` profile URLs from the central SEAS directory. The directory lists many more people, but not every listing has a public profile page. |
+| `harvard_extension_school` | Partial | Discovery finds 65 public Extension School faculty profile URLs from the faculty index. |
 | `harvard_kennedy_school` | Works | Discovery finds 229 public faculty profile URLs from the current `/faculty-profiles` directory. |
 | `harvard_business_school` | Works | Discovery finds 361 public faculty profile URLs from `pubwww.hbs.edu`. |
+| `harvard_school_of_dental_medicine` | Works | Discovery finds 455 public HSDM faculty/staff/research fellow profile URLs from the HSDM directory. |
 | `harvard_law_school` | Works | Discovery finds 387 public faculty profile URLs from the explicit `?page=1` paginated directory. |
 | `harvard_graduate_school_of_design` | Works | Discovery finds 449 public faculty/staff/affiliate `/person/...` profile URLs using the GSD people load-more API plus page links. |
 | `harvard_medical_school` | Partial | Discovery finds 113 public profiles from the DBMI people directory; HMS does not expose a single master public people directory in this config. |
 | `harvard_t_h_chan_school_public_health` | Works | Discovery finds 1548 public faculty/researcher profile URLs through the school's WordPress profiles API. |
 | `harvard_education_school` | Works | Discovery finds about 679 public faculty/staff/PhD student/EdLD student directory profile URLs. |
 | `harvard_divinity_school` | Blocked | Public people page currently returns HTTP 403 to scripted requests. |
+| `harvard_radcliffe_institute` | Works | Discovery finds 1413 public Radcliffe fellows and faculty director profile URLs. |
+| `harvard_wyss_institute` | Works | Discovery finds 195 public Wyss team profile URLs across faculty, fellows, scientists, business development, research support, clinical research, and operations teams. |
+
+Coverage notes:
+
+- Harvard College, Harvard Griffin GSAS, SEAS, and Extension School are all connected to FAS administratively, but their public people directories are not one unified source.
+- FAS itself does not expose a single public all-person profile directory. FAS coverage should be expanded department-by-department if we need exhaustive FAS faculty/student/staff profiles.
+- The official central Harvard Web Directory is not used because it is intended for manual lookup and warns against compilation/redistribution.
 
 ## HTTP 403 Forbidden
 
