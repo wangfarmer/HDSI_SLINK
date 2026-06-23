@@ -6,9 +6,9 @@ Algorithm:
   1. Build one text per person from bio + title + research_interests.
   2. Fit TF-IDF across all people (unigrams + bigrams, English stop words).
   3. For every org pair, compute cosine-similarity between all their people.
-  4. Connection strength = number of cross-org person pairs with sim >= threshold,
-     normalised by sqrt(|A| * |B|) so large orgs don't dominate.
-  5. Draw a chord diagram: arc size = people count, chord width = connection strength.
+  4. Connection strength = raw count of cross-org person pairs with sim >= threshold.
+  5. Draw a chord diagram: arc size = people count; ribbon width on each arc is
+     proportional to connection count and ribbons collectively cover the full arc.
 
 Usage:
     py scripts/visualize_school_connections.py
@@ -121,9 +121,7 @@ def compute_connections(
                 continue
             sim = cosine_similarity(Xi, Xj)          # (|A| × |B|)
             count = float(np.sum(sim >= threshold))
-            # normalise so large orgs don't dominate
-            norm = math.sqrt(Xi.shape[0] * Xj.shape[0])
-            connections[i, j] = connections[j, i] = count / norm
+            connections[i, j] = connections[j, i] = count
             done += Xi.shape[0] * Xj.shape[0]
     return connections
 
@@ -142,17 +140,90 @@ def draw_arc(ax, theta1: float, theta2: float, r_in: float, r_out: float, color:
     )
 
 
-def draw_chord(ax, theta_a: float, theta_b: float, color: str, alpha: float, linewidth: float, r: float = 0.82) -> None:
-    """Quadratic bezier curved line connecting two arc midpoints through the centre."""
-    x1, y1 = r * math.cos(theta_a), r * math.sin(theta_a)
-    x2, y2 = r * math.cos(theta_b), r * math.sin(theta_b)
-    t = np.linspace(0, 1, 120)
-    # quadratic bezier: control point pulled 60 % toward centre from the midpoint
-    mx, my = (x1 + x2) / 2 * 0.40, (y1 + y2) / 2 * 0.40
-    x = (1 - t)**2 * x1 + 2 * (1 - t) * t * mx + t**2 * x2
-    y = (1 - t)**2 * y1 + 2 * (1 - t) * t * my + t**2 * y2
-    ax.plot(x, y, color=color, alpha=alpha, linewidth=linewidth,
-            solid_capstyle="round", zorder=2)
+def _polar_xy(r: float, theta: float) -> tuple[float, float]:
+    return r * math.cos(theta), r * math.sin(theta)
+
+
+def _arc_xy(r: float, theta1: float, theta2: float, n: int = 48) -> tuple[np.ndarray, np.ndarray]:
+    t = np.linspace(theta1, theta2, n)
+    return r * np.cos(t), r * np.sin(t)
+
+
+def _bezier_bridge(
+    x1: float, y1: float, x2: float, y2: float, pull: float = 0.35, n: int = 48,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Quadratic bezier between two rim points, bowing toward the centre."""
+    mx, my = (x1 + x2) / 2 * pull, (y1 + y2) / 2 * pull
+    t = np.linspace(0, 1, n)
+    x = (1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t**2 * x2
+    y = (1 - t) ** 2 * y1 + 2 * (1 - t) * t * my + t**2 * y2
+    return x, y
+
+
+def allocate_chord_segments(
+    angles: list[tuple[float, float, float]],
+    connections: np.ndarray,
+) -> dict[tuple[int, int], tuple[float, float, float, float]]:
+    """Map each org pair to angular intervals that tile each arc without gaps."""
+    n = len(angles)
+    node_segments: dict[tuple[int, int], tuple[float, float]] = {}
+
+    for i in range(n):
+        start, end, _ = angles[i]
+        span = start - end
+        partners = [(j, connections[i, j]) for j in range(n) if j != i and connections[i, j] > 0]
+        total = sum(count for _, count in partners)
+        if total <= 0:
+            continue
+        cursor = end
+        for j, count in sorted(partners, key=lambda item: item[0]):
+            seg = span * count / total
+            node_segments[(i, j)] = (cursor, cursor + seg)
+            cursor += seg
+
+    pair_segments: dict[tuple[int, int], tuple[float, float, float, float]] = {}
+    for i in range(n):
+        for j in range(i + 1, n):
+            if connections[i, j] <= 0:
+                continue
+            a0, a1 = node_segments[(i, j)]
+            b0, b1 = node_segments[(j, i)]
+            pair_segments[(i, j)] = (a0, a1, b0, b1)
+    return pair_segments
+
+
+def draw_chord_ribbon(
+    ax,
+    r: float,
+    a0: float,
+    a1: float,
+    b0: float,
+    b1: float,
+    color: str,
+    alpha: float,
+) -> None:
+    """Filled ribbon between two angular intervals on the inner rim."""
+    xa, ya = _arc_xy(r, a0, a1)
+    xb, yb = _arc_xy(r, b1, b0)
+
+    x_end_a, y_end_a = xa[-1], ya[-1]
+    x_start_b, y_start_b = _polar_xy(r, b0)
+    bx, by = _bezier_bridge(x_end_a, y_end_a, x_start_b, y_start_b)
+
+    x_end_b, y_end_b = xb[-1], yb[-1]
+    x_start_a, y_start_a = _polar_xy(r, a0)
+    back_x, back_y = _bezier_bridge(x_end_b, y_end_b, x_start_a, y_start_a)
+
+    xs = np.concatenate([xa, bx[1:], xb, back_x[1:], [x_start_a]])
+    ys = np.concatenate([ya, by[1:], yb, back_y[1:], [y_start_a]])
+    patch = PathPatch(
+        MPath(np.column_stack([xs, ys]), closed=True),
+        facecolor=color,
+        edgecolor="none",
+        alpha=alpha,
+        zorder=2,
+    )
+    ax.add_patch(patch)
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -196,7 +267,7 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
         if connections[i, j] > 0
     ]
     for strength, a, b in sorted(pairs, reverse=True)[:10]:
-        print(f"  {a:12s} <-> {b:12s}  {strength:.3f}")
+        print(f"  {a:12s} <-> {b:12s}  {int(strength):,} pairs")
 
     # 5. Draw chord diagram
     GAP_DEG = 2.5
@@ -219,17 +290,17 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
 
     R_IN, R_OUT, R_LABEL = 0.82, 0.95, 1.08
 
-    # chords
+    # chord ribbons — draw largest connections first so smaller ones stay visible
+    chord_segments = allocate_chord_segments(angles, connections)
     max_c = connections.max() if connections.max() > 0 else 1
-    for i in range(n):
-        for j in range(i + 1, n):
-            c = connections[i, j]
-            if c <= 0:
-                continue
-            linewidth = 1.0 + 14.0 * (c / max_c)   # 1px – 15px
-            alpha     = 0.25 + 0.55 * (c / max_c)   # 0.25 – 0.80
-            draw_chord(ax, angles[i][2], angles[j][2],
-                       schools[i]["color"], alpha, linewidth)
+    ribbon_pairs = sorted(
+        ((connections[i, j], i, j) for i in range(n) for j in range(i + 1, n) if connections[i, j] > 0),
+        reverse=True,
+    )
+    for strength, i, j in ribbon_pairs:
+        a0, a1, b0, b1 = chord_segments[(i, j)]
+        alpha = 0.22 + 0.45 * (strength / max_c)
+        draw_chord_ribbon(ax, R_IN, a0, a1, b0, b1, schools[i]["color"], alpha)
 
     # arcs + labels
     for i, s in enumerate(schools):
@@ -251,7 +322,7 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
 
     ax.set_title(
         f"Harvard Schools & Research Orgs\n"
-        f"People Count & Research Similarity Connections  (threshold={threshold})",
+        f"People Count & Similarity Connection Pairs  (threshold={threshold})",
         fontsize=13, pad=24, color="#333333", fontweight="bold",
     )
 
