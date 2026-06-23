@@ -7,8 +7,9 @@ Algorithm:
   2. Fit TF-IDF across all people (unigrams + bigrams, English stop words).
   3. For every org pair, compute cosine-similarity between all their people.
   4. Connection strength = raw count of cross-org person pairs with sim >= threshold.
-  5. Draw a chord diagram: arc size = people count; ribbon width on each arc is
-     proportional to connection count and ribbons collectively cover the full arc.
+  5. Draw a chord diagram using flow-conserving layout: arc angle = total connection
+     pairs per school; each ribbon has the same angular width at both ends.
+     Outer band depth encodes people count.
 
 Usage:
     py scripts/visualize_school_connections.py
@@ -160,24 +161,50 @@ def _bezier_bridge(
     return x, y
 
 
+def layout_group_angles(
+    weights: np.ndarray,
+    gap_rad: float,
+) -> list[tuple[float, float, float]]:
+    """Assign clockwise arc spans proportional to weights (start, end, mid)."""
+    n = len(weights)
+    total = float(weights.sum())
+    usable_rad = 2 * math.pi - gap_rad * n
+    angles: list[tuple[float, float, float]] = []
+    cursor = math.pi / 2
+    for weight in weights:
+        span = usable_rad * weight / total if total > 0 else 0.0
+        start, end = cursor, cursor - span
+        angles.append((start, end, (start + end) / 2))
+        cursor = end - gap_rad
+    return angles
+
+
 def allocate_chord_segments(
     angles: list[tuple[float, float, float]],
     connections: np.ndarray,
 ) -> dict[tuple[int, int], tuple[float, float, float, float]]:
-    """Map each org pair to angular intervals that tile each arc without gaps."""
+    """Flow-conserving chord layout: each ribbon has equal width at both ends.
+
+    Arc span for school i is proportional to sum_j connections[i, j], so
+    ribbon angular width for pair (i, j) is:
+        connections[i, j] / sum_k connections[i, k] * arc_span_i
+        == connections[i, j] / sum_k connections[j, k] * arc_span_j
+    """
     n = len(angles)
+    group_totals = connections.sum(axis=1)
     node_segments: dict[tuple[int, int], tuple[float, float]] = {}
 
     for i in range(n):
         start, end, _ = angles[i]
         span = start - end
-        partners = [(j, connections[i, j]) for j in range(n) if j != i and connections[i, j] > 0]
-        total = sum(count for _, count in partners)
+        total = group_totals[i]
         if total <= 0:
             continue
         cursor = end
-        for j, count in sorted(partners, key=lambda item: item[0]):
-            seg = span * count / total
+        for j in sorted(range(n), key=lambda idx: (-connections[i, idx], idx)):
+            if j == i or connections[i, j] <= 0:
+                continue
+            seg = span * connections[i, j] / total
             node_segments[(i, j)] = (cursor, cursor + seg)
             cursor += seg
 
@@ -269,18 +296,13 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
     for strength, a, b in sorted(pairs, reverse=True)[:10]:
         print(f"  {a:12s} <-> {b:12s}  {int(strength):,} pairs")
 
-    # 5. Draw chord diagram
+    # 5. Draw chord diagram — arc angle from connection totals (flow conservation)
     GAP_DEG = 2.5
     gap_rad = math.radians(GAP_DEG)
-    usable_rad = 2 * math.pi - gap_rad * n
-
-    angles: list[tuple[float, float, float]] = []
-    cursor = math.pi / 2
-    for s in schools:
-        span = usable_rad * s["count"] / total
-        start, end = cursor, cursor - span
-        angles.append((start, end, (start + end) / 2))
-        cursor = end - gap_rad
+    group_totals = connections.sum(axis=1)
+    angles = layout_group_angles(group_totals, gap_rad)
+    people_counts = np.array([s["count"] for s in schools], dtype=float)
+    max_people = people_counts.max() if len(people_counts) else 1.0
 
     fig, ax = plt.subplots(figsize=(16, 16), facecolor="#F8F8F8")
     ax.set_aspect("equal")
@@ -288,7 +310,8 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
     ax.set_xlim(-1.9, 1.9)
     ax.set_ylim(-1.9, 1.9)
 
-    R_IN, R_OUT, R_LABEL = 0.82, 0.95, 1.08
+    R_IN, R_OUT_MAX, R_LABEL = 0.82, 0.95, 1.08
+    band_depth = R_OUT_MAX - R_IN
 
     # chord ribbons — draw largest connections first so smaller ones stay visible
     chord_segments = allocate_chord_segments(angles, connections)
@@ -302,18 +325,23 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
         alpha = 0.22 + 0.45 * (strength / max_c)
         draw_chord_ribbon(ax, R_IN, a0, a1, b0, b1, schools[i]["color"], alpha)
 
-    # arcs + labels
+    # arcs + labels — angular span = connections; radial depth = people count
     for i, s in enumerate(schools):
         start, end, mid = angles[i]
-        draw_arc(ax, end, start, R_IN, R_OUT, s["color"])
+        r_out = R_IN + band_depth * (people_counts[i] / max_people)
+        draw_arc(ax, end, start, R_IN, r_out, s["color"])
 
         lx = R_LABEL * math.cos(mid)
         ly = R_LABEL * math.sin(mid)
         ha = "left" if lx > 0.15 else ("right" if lx < -0.15 else "center")
         va = "bottom" if ly > 0.15 else ("top" if ly < -0.15 else "center")
-        ax.text(lx, ly, f"{s['label']}\n{s['count']:,}",
-                ha=ha, va=va, fontsize=9.5, fontweight="bold",
-                color=s["color"], multialignment="center", linespacing=1.4)
+        pairs_total = int(group_totals[i])
+        ax.text(
+            lx, ly,
+            f"{s['label']}\n{s['count']:,} people\n{pairs_total:,} pairs",
+            ha=ha, va=va, fontsize=9, fontweight="bold",
+            color=s["color"], multialignment="center", linespacing=1.35,
+        )
 
     # centre
     ax.text(0, 0.07, "Total",    ha="center", va="center", fontsize=11, color="#888888")
@@ -322,7 +350,7 @@ def main(output_path: Path = DEFAULT_OUTPUT, threshold: float = DEFAULT_THRESHOL
 
     ax.set_title(
         f"Harvard Schools & Research Orgs\n"
-        f"People Count & Similarity Connection Pairs  (threshold={threshold})",
+        f"Arc angle = connection pairs  |  Band depth = people count  (threshold={threshold})",
         fontsize=13, pad=24, color="#333333", fontweight="bold",
     )
 
