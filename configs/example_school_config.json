@@ -1,0 +1,26 @@
+{
+  "key": "example_harvard_school",
+  "name": "Example Harvard School",
+  "seed_urls": [
+    "https://example.harvard.edu/faculty"
+  ],
+  "allowed_domains": [
+    "example.harvard.edu"
+  ],
+  "profile_link_patterns": [
+    "/people/",
+    "/faculty/"
+  ],
+  "exclude_link_patterns": [
+    "#",
+    "/news/",
+    "/events/"
+  ],
+  "profile_required_patterns": [
+    "/people/[^/]+$",
+    "/faculty/[^/]+$"
+  ],
+  "list_page_patterns": [
+    "/faculty/page/[0-9]+$"
+  ]
+}
