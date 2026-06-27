@@ -1,0 +1,10 @@
+{
+  "profiles_seen": 7526,
+  "matched": 1090,
+  "method_exact": 845,
+  "unmatched": 6436,
+  "method_core_name": 229,
+  "method_fuzzy": 16,
+  "orcid_records": 15863,
+  "match_rate_pct": 14.48
+}

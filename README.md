@@ -13,3 +13,14 @@ Requirement 2 is implemented as a configurable Harvard people/researcher scraper
 - Output suitable for later ORCID merge and S-Link grouping experiments.
 
 See `docs/harvard_faculty_scraper.md` for usage.
+
+## ORCID name merge + website
+
+Match scraped person folders to `harvard_orcid_unique_names.csv` (exact, missing-middle-name, and fuzzy spelling matches), update local `profile.jsonl` files, and build a static people directory:
+
+```bash
+python3 scripts/merge_orcid_to_profiles.py
+python3 -m http.server 8080 --directory website
+```
+
+Open `http://localhost:8080` to browse matched ORCID links. Generated data lives in `website/data/people.json`.
