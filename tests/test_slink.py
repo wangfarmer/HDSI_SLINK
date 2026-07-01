@@ -2,12 +2,30 @@ from __future__ import annotations
 
 import unittest
 
-from slink.domains import HUMAIN_DOMAINS
+from slink.domains import HUMAIN_DOMAINS, domain_raw_score
 from slink.matcher import build_recommendations, enrich_with_recommendations
 from slink.profiler import build_signal_text, detect_research_foci, profile_from_payload, score_domains
 
 
 class SLinkProfilerTests(unittest.TestCase):
+    def test_methods_researcher_scores_higher_than_application_only(self) -> None:
+        methods_text = build_signal_text(
+            {
+                "title": "Professor of machine learning",
+                "bio": "Develops foundation models, causal machine learning, and model evaluation methods.",
+                "research_interests": ["representation learning", "uncertainty quantification"],
+            }
+        )
+        application_text = build_signal_text(
+            {
+                "title": "Clinical researcher",
+                "bio": "Uses existing machine learning tools for patient screening in hospitals.",
+                "research_interests": ["patient outcomes"],
+            }
+        )
+        methods_score = domain_raw_score(methods_text, HUMAIN_DOMAINS[0])
+        application_score = domain_raw_score(application_text, HUMAIN_DOMAINS[0])
+        self.assertGreater(methods_score, application_score)
     def test_domain_scores_cover_all_seven_domains(self) -> None:
         text = build_signal_text(
             {

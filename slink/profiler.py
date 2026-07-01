@@ -10,6 +10,8 @@ from .domains import (
     DOMAIN_BY_ID,
     HUMAIN_DOMAINS,
     METHODOLOGICAL_TAG_KEYWORDS,
+    domain_raw_score,
+    keyword_hits,
 )
 from .models import DomainScore, ResearchFocus, ResearcherProfile
 
@@ -31,18 +33,18 @@ def build_signal_text(payload: dict) -> str:
 
 
 def _count_hits(text: str, keywords: tuple[str, ...]) -> int:
-    return sum(1 for keyword in keywords if keyword in text)
+    return keyword_hits(text, keywords)
 
 
 def score_domains(text: str) -> list[DomainScore]:
     if not text.strip():
         return [DomainScore(domain.id, domain.name, 0.0) for domain in HUMAIN_DOMAINS]
 
-    hits = {domain.id: _count_hits(text, domain.keywords) for domain in HUMAIN_DOMAINS}
-    max_hits = max(hits.values()) or 1
+    raw_scores = [domain_raw_score(text, domain) for domain in HUMAIN_DOMAINS]
+    max_score = max(raw_scores) or 1.0
     return [
-        DomainScore(domain.id, domain.name, round(hits[domain.id] / max_hits, 4))
-        for domain in HUMAIN_DOMAINS
+        DomainScore(domain.id, domain.name, round(raw / max_score, 4))
+        for domain, raw in zip(HUMAIN_DOMAINS, raw_scores)
     ]
 
 
@@ -70,7 +72,10 @@ def classify_ai_readiness(text: str, domain_scores: list[DomainScore]) -> str:
 
 def _focus_keywords(text: str, domain_id: str) -> list[str]:
     domain = DOMAIN_BY_ID[domain_id]
-    return [keyword for keyword in domain.keywords if keyword in text][:5]
+    matched = [keyword for keyword in domain.core_keywords if keyword in text]
+    if not matched:
+        matched = [keyword for keyword in domain.secondary_keywords if keyword in text]
+    return matched[:5]
 
 
 def _focus_label(domain_id: str, keywords: list[str]) -> str:

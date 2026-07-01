@@ -2,15 +2,15 @@
 
 This module implements the first version of the S-Link profiling and recommendation engine.
 
-## Seven HUMA.I.N domains
+## Domain keyword taxonomy
 
-1. AI Foundations & Core Methods
-2. Data Systems & Infrastructure
-3. Human-AI Interaction & Cognition
-4. AI for Scientific Discovery
-5. AI for Health & Society
-6. Responsible, Ethical & Policy AI
-7. AI Entrepreneurship & Translation
+Each domain uses:
+
+- **Core keywords** (full weight)
+- **Secondary signals** (0.45 weight)
+- **Strong-match boost** when a researcher shows multiple core hits or core + secondary evidence
+
+See `slink/domains.py` for the complete HUMA.I.N keyword lists.
 
 ## Per-researcher outputs
 
