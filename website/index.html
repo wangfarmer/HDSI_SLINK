@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HDSI S-Link People Directory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">HDSI S-Link</p>
+      <h1>Harvard People Directory</h1>
+      <p class="lede">Scraped Harvard school profiles linked to ORCID where a confident name match exists.</p>
+      <nav class="site-nav">
+        <a class="active" href="index.html">Directory</a>
+        <a href="slink.html">S-Link Matching</a>
+      </nav>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <label class="search">
+        <span>Search</span>
+        <input id="search" type="search" placeholder="Name, school, title, ORCID">
+      </label>
+      <label class="filter">
+        <span>Match status</span>
+        <select id="match-filter">
+          <option value="all">All people</option>
+          <option value="matched">ORCID matched</option>
+          <option value="unmatched">No ORCID match</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>School</th>
+            <th>Title</th>
+            <th>ORCID</th>
+            <th>Match</th>
+          </tr>
+        </thead>
+        <tbody id="people-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

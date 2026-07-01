@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HUMA.I.N S-Link Matching</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">HUMA.I.N S-Link</p>
+      <h1>S-Link Matching Explorer</h1>
+      <p class="lede">
+        Domain scores, research-focus profiles, AI-readiness tags, and up to three distinct
+        S-Link recommendations per researcher.
+      </p>
+      <nav class="site-nav">
+        <a href="index.html">Directory</a>
+        <a class="active" href="slink.html">S-Link Matching</a>
+      </nav>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <label class="search">
+        <span>Search</span>
+        <input id="search" type="search" placeholder="Name, domain, tag, focus">
+      </label>
+      <label class="filter">
+        <span>AI readiness</span>
+        <select id="ai-filter">
+          <option value="all">All</option>
+          <option value="ai_native">AI-Native</option>
+          <option value="ai_adjacent">AI-Adjacent</option>
+          <option value="ai_bridge">AI-Bridge / Domain Expert</option>
+          <option value="discovery_candidate">Non-AI / Discovery Candidate</option>
+        </select>
+      </label>
+      <label class="filter">
+        <span>S-Links</span>
+        <select id="rec-filter">
+          <option value="all">Any count</option>
+          <option value="1">1 S-Link</option>
+          <option value="2">2 S-Links</option>
+          <option value="3">3 S-Links</option>
+          <option value="0">No S-Links</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="profile-list" class="profile-list"></section>
+  </main>
+
+  <script src="slink.js"></script>
+</body>
+</html>
