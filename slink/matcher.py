@@ -18,9 +18,11 @@ COMPLEMENTARY_DOMAINS: dict[str, tuple[str, ...]] = {
 }
 
 AI_MIX_BONUS = {
-    ("ai_active", "ai_opportunity"): 0.12,
-    ("ai_adjacent", "ai_opportunity"): 0.08,
-    ("ai_active", "ai_adjacent"): 0.06,
+    ("ai_native", "ai_bridge"): 0.14,
+    ("ai_native", "discovery_candidate"): 0.12,
+    ("ai_adjacent", "ai_bridge"): 0.10,
+    ("ai_native", "ai_adjacent"): 0.06,
+    ("ai_adjacent", "discovery_candidate"): 0.08,
 }
 
 

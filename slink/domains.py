@@ -454,39 +454,6 @@ APPLICATION_TAG_KEYWORDS: dict[str, tuple[str, ...]] = {
     "governance": ("governance", "public policy", "civic", "platform governance"),
 }
 
-AI_ACTIVE_KEYWORDS = (
-    "machine learning",
-    "deep learning",
-    "artificial intelligence",
-    "neural networks",
-    "neural network",
-    "natural language processing",
-    "computer vision",
-    "large language models",
-    "large language model",
-    "generative ai",
-    "reinforcement learning",
-    "foundation models",
-    "foundation model",
-    "agentic ai",
-)
-
-AI_ADJACENT_KEYWORDS = (
-    "data science",
-    "computational",
-    "informatics",
-    "bioinformatics",
-    "statistics",
-    "statistical",
-    "algorithm design",
-    "modeling",
-    "simulation",
-    "digital health",
-    "data engineering",
-    "scientific machine learning",
-)
-
-
 def keyword_hits(text: str, keywords: tuple[str, ...]) -> int:
     return sum(1 for keyword in keywords if keyword in text)
 

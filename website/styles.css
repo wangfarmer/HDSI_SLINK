@@ -326,6 +326,11 @@ tbody tr:hover {
   margin-bottom: 0.55rem;
 }
 
+.readiness-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 800px) {
   .hero {
     flex-direction: column;

@@ -51,7 +51,9 @@ class ResearcherProfile:
     profile_url: str | None
     domain_scores: list[DomainScore] = field(default_factory=list)
     research_foci: list[ResearchFocus] = field(default_factory=list)
-    ai_readiness: str = "non_ai"
+    ai_readiness: str = "discovery_candidate"
+    ai_readiness_label: str | None = None
+    ai_readiness_rationale: str | None = None
     methodological_tags: list[str] = field(default_factory=list)
     application_tags: list[str] = field(default_factory=list)
     collaboration_intent_tags: list[str] = field(default_factory=list)

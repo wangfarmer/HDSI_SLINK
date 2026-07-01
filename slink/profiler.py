@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .ai_readiness import classify_ai_readiness, classify_ai_readiness_detailed
 from .domains import (
-    AI_ACTIVE_KEYWORDS,
-    AI_ADJACENT_KEYWORDS,
     APPLICATION_TAG_KEYWORDS,
     DOMAIN_BY_ID,
     HUMAIN_DOMAINS,
@@ -50,24 +49,6 @@ def score_domains(text: str) -> list[DomainScore]:
 
 def extract_tags(text: str, mapping: dict[str, tuple[str, ...]]) -> list[str]:
     return sorted(tag for tag, keywords in mapping.items() if any(keyword in text for keyword in keywords))
-
-
-def classify_ai_readiness(text: str, domain_scores: list[DomainScore]) -> str:
-    if _count_hits(text, AI_ACTIVE_KEYWORDS) >= 2:
-        return "ai_active"
-    if _count_hits(text, AI_ACTIVE_KEYWORDS) == 1 or _count_hits(text, AI_ADJACENT_KEYWORDS) >= 2:
-        return "ai_adjacent"
-
-    top_domain = max(domain_scores, key=lambda score: score.score, default=None)
-    if top_domain and top_domain.domain_id in {"ai_foundations", "data_systems", "human_ai"}:
-        return "ai_adjacent"
-
-    science_or_health = sum(
-        score.score for score in domain_scores if score.domain_id in {"ai_science", "ai_health_society"}
-    )
-    if science_or_health >= 0.35:
-        return "ai_opportunity"
-    return "non_ai"
 
 
 def _focus_keywords(text: str, domain_id: str) -> list[str]:
@@ -134,6 +115,7 @@ def profile_from_payload(
 ) -> ResearcherProfile:
     text = build_signal_text(payload)
     domain_scores = score_domains(text)
+    readiness = classify_ai_readiness_detailed(text, domain_scores)
     return ResearcherProfile(
         person_id=person_id,
         full_name=(payload.get("full_name") or folder_name).strip(),
@@ -143,7 +125,9 @@ def profile_from_payload(
         profile_url=payload.get("profile_url"),
         domain_scores=domain_scores,
         research_foci=detect_research_foci(text, domain_scores),
-        ai_readiness=classify_ai_readiness(text, domain_scores),
+        ai_readiness=readiness.tag,
+        ai_readiness_label=readiness.label,
+        ai_readiness_rationale=readiness.rationale,
         methodological_tags=extract_tags(text, METHODOLOGICAL_TAG_KEYWORDS),
         application_tags=extract_tags(text, APPLICATION_TAG_KEYWORDS),
         collaboration_intent_tags=list(payload.get("collaboration_intent_tags") or []),

@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from slink.ai_readiness import AI_READINESS_LABELS, classify_ai_readiness_detailed
 from slink.profiler import (
     build_signal_text,
-    classify_ai_readiness,
     iter_scraped_profiles,
     score_domains,
 )
@@ -35,14 +35,16 @@ def classify_profiles(
         stats["profiles_seen"] += 1
         text = build_signal_text(payload)
         domain_scores = score_domains(text)
-        ai_readiness = classify_ai_readiness(text, domain_scores)
+        readiness = classify_ai_readiness_detailed(text, domain_scores)
         previous = payload.get("ai_readiness")
 
-        payload["ai_readiness"] = ai_readiness
-        stats[f"tag_{ai_readiness}"] += 1
-        if previous and previous != ai_readiness:
+        payload["ai_readiness"] = readiness.tag
+        payload["ai_readiness_label"] = readiness.label
+        payload["ai_readiness_rationale"] = readiness.rationale
+        stats[f"tag_{readiness.tag}"] += 1
+        if previous and previous != readiness.tag:
             stats["changed"] += 1
-        elif previous == ai_readiness:
+        elif previous == readiness.tag:
             stats["unchanged"] += 1
         else:
             stats["new"] += 1
@@ -56,7 +58,8 @@ def classify_profiles(
                 "person_id": person_id,
                 "school_key": school_key,
                 "full_name": payload.get("full_name") or folder_name,
-                "ai_readiness": ai_readiness,
+                "ai_readiness": readiness.tag,
+                "ai_readiness_label": readiness.label,
                 "previous_ai_readiness": previous,
             }
         )
@@ -83,7 +86,7 @@ def main() -> int:
     args.stats.write_text(json.dumps(stats, indent=2) + "\n", encoding="utf-8")
 
     print(f"Profiles scanned: {stats.get('profiles_seen', 0):,}")
-    for tag in ("ai_active", "ai_adjacent", "ai_opportunity", "non_ai"):
+    for tag in AI_READINESS_LABELS:
         count = stats.get(f"tag_{tag}", 0)
         if count:
             print(f"  {tag:16s} {count:,}")

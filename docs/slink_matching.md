@@ -12,13 +12,34 @@ Each domain uses:
 
 See `slink/domains.py` for the complete HUMA.I.N keyword lists.
 
+## AI-readiness tags
+
+Every researcher receives one AI-readiness classification. This does **not** determine inclusion in HUMA.I.N; it guides how people are mixed into S-Links.
+
+| Tag ID | Label |
+|---|---|
+| `ai_native` | AI-Native |
+| `ai_adjacent` | AI-Adjacent |
+| `ai_bridge` | AI-Bridge / Domain Expert |
+| `discovery_candidate` | Non-AI / Discovery Candidate |
+
+Keyword lists and classification logic live in `slink/ai_readiness.py`.
+
+S-Link partner scoring gives the largest bonus to **AI-Native + AI-Bridge** pairs so method experts are matched with domain experts.
+
+You can also tag profiles in place:
+
+```bash
+python3 scripts/ai_readiness.py
+```
+
 ## Per-researcher outputs
 
 Each profile includes:
 
 - **Domain scores** across all seven domains
 - **Research foci** (1–3 distinct tracks when warranted)
-- **AI-readiness tag**: `ai_active`, `ai_adjacent`, `ai_opportunity`, or `non_ai`
+- **AI-readiness tag**: `ai_native`, `ai_adjacent`, `ai_bridge`, or `discovery_candidate`
 - **Methodological tags**
 - **Application/topic tags**
 - **Collaboration-intent tags** (empty until onboarding is added)
@@ -56,7 +77,7 @@ For each research focus:
 2. Add complementarity from related domains
 3. Reward cross-school bridges
 4. Reward shared application tags
-5. Reward mixed AI-readiness pairs (for example AI-active + AI-opportunity)
+5. Reward mixed AI-readiness pairs (for example AI-Native + AI-Bridge)
 
 Recommendations are capped at three and only created for foci above the confidence threshold.
 

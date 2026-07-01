@@ -19,10 +19,10 @@ const SCHOOL_LABELS = {
 };
 
 const AI_LABELS = {
-  ai_active: "AI active",
-  ai_adjacent: "AI adjacent",
-  ai_opportunity: "AI opportunity",
-  non_ai: "Non-AI",
+  ai_native: "AI-Native",
+  ai_adjacent: "AI-Adjacent",
+  ai_bridge: "AI-Bridge / Domain Expert",
+  discovery_candidate: "Non-AI / Discovery Candidate",
 };
 
 let profiles = [];
@@ -44,7 +44,7 @@ function renderStats(stats) {
     <div class="stat-card"><strong>${stats.profiles?.toLocaleString() ?? "0"}</strong><span>Profiles scored</span></div>
     <div class="stat-card"><strong>${stats.recs_1 ?? 0}</strong><span>1 S-Link</span></div>
     <div class="stat-card"><strong>${(stats.recs_2 ?? 0) + (stats.recs_3 ?? 0)}</strong><span>2–3 S-Links</span></div>
-    <div class="stat-card"><strong>${stats.ai_ai_active ?? 0}</strong><span>AI active</span></div>
+    <div class="stat-card"><strong>${stats.ai_ai_native ?? 0}</strong><span>AI-Native</span></div>
   `;
 }
 
@@ -102,7 +102,7 @@ function renderProfiles(rows) {
           <p class="muted">${escapeHtml(schoolLabel(profile.school_key))}${profile.title ? ` · ${escapeHtml(profile.title)}` : ""}</p>
         </div>
         <div class="tag-row">
-          <span class="badge ai">${escapeHtml(AI_LABELS[profile.ai_readiness] || profile.ai_readiness)}</span>
+          <span class="badge ai">${escapeHtml(profile.ai_readiness_label || AI_LABELS[profile.ai_readiness] || profile.ai_readiness)}</span>
           <span class="badge focus">${profile.research_foci.length} focus${profile.research_foci.length === 1 ? "" : "es"}</span>
           <span class="badge rec">${profile.slink_recommendations.length} S-Link${profile.slink_recommendations.length === 1 ? "" : "s"}</span>
         </div>
@@ -122,6 +122,7 @@ function renderProfiles(rows) {
           </ul>
           <h4>Method / application tags</h4>
           <div class="tag-row">${renderTags(profile.methodological_tags, "method")} ${renderTags(profile.application_tags, "app")}</div>
+          ${profile.ai_readiness_rationale ? `<p class="muted readiness-note">${escapeHtml(profile.ai_readiness_rationale)}</p>` : ""}
         </section>
       </div>
 
