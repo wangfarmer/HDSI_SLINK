@@ -24,3 +24,13 @@ python3 -m http.server 8080 --directory website
 ```
 
 Open `http://localhost:8080` to browse matched ORCID links. Generated data lives in `website/data/people.json`.
+
+## S-Link domain matching
+
+Build HUMA.I.N domain scores, research-focus profiles, AI-readiness tags, and up to three S-Link recommendations per researcher:
+
+```bash
+python3 scripts/build_slink_profiles.py
+```
+
+Then open `http://localhost:8080/slink.html`. See `docs/slink_matching.md`.

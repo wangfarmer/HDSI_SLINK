@@ -14,4 +14,4 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["harvard_faculty_scraper*"]
+include = ["harvard_faculty_scraper*", "slink*"]

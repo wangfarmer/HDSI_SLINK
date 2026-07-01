@@ -51,6 +51,26 @@ h1 {
   line-height: 1.5;
 }
 
+.site-nav {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+}
+
+.site-nav a.active,
+.site-nav a:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .stats {
   display: grid;
   gap: 0.75rem;
@@ -187,6 +207,123 @@ tbody tr:hover {
 
 .orcid-link:hover {
   text-decoration: underline;
+}
+
+.profile-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-card,
+.panel-empty {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.2rem 1.3rem;
+  box-shadow: 0 12px 30px rgba(31, 41, 51, 0.05);
+}
+
+.profile-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-head h3 {
+  margin: 0 0 0.25rem;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-grid h4,
+.profile-card > section > h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.domain-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 1.4fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+  font-size: 0.92rem;
+}
+
+.bar-track {
+  height: 8px;
+  background: #edf2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #5b21b6);
+}
+
+.focus-list {
+  margin: 0 0 0.8rem;
+  padding-left: 1.1rem;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.badge.ai {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.badge.focus {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.badge.rec {
+  background: #def7ec;
+  color: #047857;
+}
+
+.badge.method {
+  background: #fff4d6;
+  color: #9a6700;
+}
+
+.badge.app {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.rec-card {
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.rec-card h4 {
+  margin: 0 0 0.35rem;
+}
+
+.rec-card ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.rec-card li {
+  margin-bottom: 0.55rem;
 }
 
 @media (max-width: 800px) {
